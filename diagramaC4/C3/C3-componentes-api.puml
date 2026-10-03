@@ -1,0 +1,92 @@
+@startuml C3-componentes-api
+' =====================================================================================
+' Medalyze · C4 · Nivel 3 · Componentes del servidor (API REST Medalyze)
+' ACTUALIZADO el 2 de octubre de 2026 por ARQ-01. Reemplaza la API legacy
+' (recursos /shared-* con un documento completo por organización y
+' expected_revision único) por los 12 módulos en español con control de
+' concurrencia POR REGISTRO, definidos en ADR-001-arquitectura-backend.md.
+' La versión anterior de este archivo describía componentes legacy del
+' prototipo; se conserva en el historial de Git para referencia.
+'
+' Fuentes: ADR-001-arquitectura-backend.md · ARQ-01-tabla-clases-modulos.md ·
+'          Medalyze_Diagrama_Clases_Calculo_Costos.puml ·
+'          medalyze-base-de-datos.puml
+'
+' Nota de mantenimiento: la versión previa de este archivo invocaba
+' $pie_de_fuente(), un macro no definido en _estilo.iuml. Se reemplaza aquí
+' por $leyenda(), que sí está definido, para evitar un error de compilación.
+' =====================================================================================
+!include <C4/C4_Component>
+!include ../_estilo.iuml
+
+title Medalyze · C4 · Nivel 3 · Componentes de la API REST (actualizado — ARQ-01)
+
+Container(spa, "Aplicación web (SPA)", "React · TypeScript", "Cliente del navegador (detalle en C3-componentes-cliente).")
+ContainerDb(db, "Base de datos relacional", "PostgreSQL 16", "Esquema de medalyze-base-de-datos.puml; RLS por organización, aplicado en BE-02.")
+
+Container_Boundary(api, "API REST Medalyze · FastAPI · /api/v1 · capa api") {
+
+  Component(auth, "autenticacion", "Router FastAPI", "Registro, inicio de sesión, renovación y cierre de sesión. Emite JWT (15 min) y token de actualización opaco (7 días, rota en cada uso). Contraseñas con Argon2.")
+  Component(cuenta, "cuenta", "Router FastAPI", "Perfil del usuario y datos de la organización (nombre, moneda, múltiplo de redondeo, espaciado por defecto).")
+  Component(onboarding, "onboarding", "Router FastAPI", "Estado y avance del asistente de bienvenida.")
+  Component(capacidad, "capacidad", "Router FastAPI", "Perfil de capacidad de atención, costos indirectos y resumen (pool mensual, costo por minuto).")
+  Component(gastos, "gastos", "Router FastAPI", "CRUD de gastos fijos y variables del consultorio.")
+  Component(equipos, "equipos", "Router FastAPI", "CRUD de equipos e instalaciones depreciables.")
+  Component(insumos, "insumos", "Router FastAPI", "Catálogo de insumos, historial de precios, archivar/restaurar.")
+  Component(mensuales, "mensuales", "Router FastAPI", "Periodos mensuales de consumo: captura, corrección, anulación, restauración y promedio ponderado (Método A).")
+  Component(plantillas, "plantillas", "Router FastAPI", "Catálogo de plantillas de tratamiento e importación hacia tratamientos.")
+  Component(tratamientos, "tratamientos", "Router FastAPI", "Configuración clínica y de materiales del tratamiento; archivar/restaurar.")
+  Component(costeo, "costeo", "Router FastAPI", "Vista previa, cálculo persistido (hoja de costos) e historial.")
+  Component(inicio, "inicio", "Router FastAPI", "Resumen agregado para el panel de Inicio (KPIs, siguiente paso, último resultado).")
+}
+
+Container_Boundary(app, "application · casos de uso + interfaces de repositorio") {
+  Component(emitir, "EmitirHojaCostosTratamiento", "Caso de uso", "Calcula con SistemaCosteo y, si el resultado es completo, guarda la hoja de costos — todo en una sola transacción (HU-20 · CA3).")
+  Component(repos, "Repositorio* (7 interfaces)", "Puertos", "RepositorioGastos, RepositorioEquipos, RepositorioConfiguracion, RepositorioTratamientos, RepositorioHojasCostos y las añadidas por CAL-06. No conocen SQLAlchemy.")
+}
+
+Container_Boundary(dom, "domain/costeo · Python puro, sin importar de las demás capas") {
+  Component(engine, "SistemaCosteo", "Facade de dominio", "Pool mensual → capacidad y costo por minuto → costo del tiempo → materiales (A, B rápido, B receta) → costo, ajuste, precio sugerido y margen. Devuelve CalculoCompleto o Borrador con Bloqueo(s).")
+}
+
+Container_Boundary(infra, "infrastructure · SQLAlchemy, Argon2/JWT") {
+  Component(adapters, "Adaptadores SQLAlchemy", "Infraestructura", "Un adaptador concreto por cada Repositorio*. Aplican SET LOCAL app.organizacion_id al abrir cada transacción (HU-31).")
+  Component(rev, "Control de concurrencia optimista", "Infraestructura", "Compara la revisión enviada por registro contra la vigente. Si no coincide, responde 409 CONFLICTO_REVISION; si coincide, la incrementa.")
+}
+
+Rel(spa, auth, "Inicia sesión y obtiene el usuario actual", "JSON / HTTPS")
+Rel(spa, cuenta, "GET | PATCH", "JSON / HTTPS · Bearer JWT")
+Rel(spa, onboarding, "GET | PATCH", "JSON / HTTPS · Bearer JWT")
+Rel(spa, capacidad, "GET | PUT", "JSON / HTTPS · Bearer JWT")
+Rel(spa, gastos, "GET | POST | PATCH | DELETE", "JSON / HTTPS · Bearer JWT")
+Rel(spa, equipos, "GET | POST | PATCH | DELETE", "JSON / HTTPS · Bearer JWT")
+Rel(spa, insumos, "GET | POST | PATCH | DELETE", "JSON / HTTPS · Bearer JWT")
+Rel(spa, mensuales, "GET | POST", "JSON / HTTPS · Bearer JWT")
+Rel(spa, plantillas, "GET | POST", "JSON / HTTPS · Bearer JWT")
+Rel(spa, tratamientos, "GET | POST | PUT", "JSON / HTTPS · Bearer JWT")
+Rel(spa, costeo, "POST vista-previa | POST calculos · Idempotency-Key", "JSON / HTTPS · Bearer JWT")
+Rel(spa, inicio, "GET", "JSON / HTTPS · Bearer JWT")
+
+Rel(gastos, repos, "usa")
+Rel(equipos, repos, "usa")
+Rel(capacidad, repos, "usa")
+Rel(tratamientos, repos, "usa")
+Rel(costeo, emitir, "vista-previa / calculos")
+Rel(emitir, engine, "calcula")
+Rel(emitir, repos, "guarda la hoja (1 sola transacción)")
+
+Rel(repos, adapters, "implementado por")
+Rel(adapters, rev, "valida la revisión del registro")
+Rel(adapters, db, "SQL", "SQL / TCP")
+
+note bottom of rev
+  Respuesta 409:
+  {"detalle": {"codigo": "CONFLICTO_REVISION",
+   "mensaje": "Los datos cambiaron en otro dispositivo…"}}
+  A diferencia de la API legacy, la revisión es POR REGISTRO,
+  no por un documento completo de la organización — editar un
+  insumo ya no bloquea la edición de otro insumo no relacionado.
+end note
+
+$leyenda()
+@enduml

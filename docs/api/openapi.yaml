@@ -1,0 +1,5826 @@
+openapi: 3.1.0
+info:
+  title: Medalyze API
+  version: 1.0.0
+  description: Contrato candidato de ARQ-03. La implementación de endpoints pertenece a BE-03 a BE-10.
+servers:
+- url: /api/v1
+  description: Base relativa
+tags:
+- name: Salud
+- name: Autenticación
+- name: Cuenta
+- name: Onboarding
+- name: Capacidad
+- name: Gastos
+- name: Equipos
+- name: Insumos
+- name: Datos mensuales
+- name: Plantillas
+- name: Tratamientos
+- name: Costeo
+- name: Historial
+- name: Inicio
+paths:
+  /health:
+    get:
+      operationId: obtenerSalud
+      summary: Consultar salud del proceso
+      tags:
+      - Salud
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EstadoServicio'
+              example:
+                estado: ok
+                version: abc123
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security: []
+  /ready:
+    get:
+      operationId: obtenerDisponibilidad
+      summary: Consultar disponibilidad de dependencias
+      tags:
+      - Salud
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EstadoServicio'
+              example:
+                estado: ok
+                version: ejemplo
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security: []
+  /autenticacion/registro:
+    post:
+      operationId: registrarCuenta
+      summary: Registrar usuario y organización
+      tags:
+      - Autenticación
+      responses:
+        '201':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sesion'
+              example:
+                token_acceso: ejemplo
+                expira_en_segundos: 900
+                usuario:
+                  identificador: 11111111-1111-4111-8111-111111111111
+                  nombre_completo: ejemplo
+                  correo: usuario@ejemplo.mx
+                  rol: PROPIETARIO
+                organizacion:
+                  identificador: 11111111-1111-4111-8111-111111111111
+                  nombre_comercial: ejemplo
+                  codigo_moneda: ejemplo
+                  multiplo_redondeo: '70.83'
+                  revision: 1
+                onboarding_completado: true
+        '409':
+          description: Conflicto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error409'
+              example:
+                detalle:
+                  codigo: CORREO_YA_REGISTRADO
+        '422':
+          description: Validación o cálculo bloqueado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
+              example:
+                detalle:
+                  codigo: ERROR_VALIDACION
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistroEntrada'
+            example:
+              nombre_completo: ejemplo
+              correo: usuario@ejemplo.mx
+              contrasena: ejemplo
+  /autenticacion/inicio-sesion:
+    post:
+      operationId: iniciarSesion
+      summary: Iniciar sesión
+      tags:
+      - Autenticación
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sesion'
+              example:
+                token_acceso: ejemplo
+                expira_en_segundos: 900
+                usuario:
+                  identificador: 11111111-1111-4111-8111-111111111111
+                  nombre_completo: ejemplo
+                  correo: usuario@ejemplo.mx
+                  rol: PROPIETARIO
+                organizacion:
+                  identificador: 11111111-1111-4111-8111-111111111111
+                  nombre_comercial: ejemplo
+                  codigo_moneda: ejemplo
+                  multiplo_redondeo: '70.83'
+                  revision: 1
+                onboarding_completado: true
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '422':
+          description: Validación o cálculo bloqueado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
+              example:
+                detalle:
+                  codigo: ERROR_VALIDACION
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InicioSesionEntrada'
+            example:
+              correo: usuario@ejemplo.mx
+              contrasena: ejemplo
+  /autenticacion/renovacion:
+    post:
+      operationId: renovarSesion
+      summary: Rotar la sesión
+      tags:
+      - Autenticación
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sesion'
+              example:
+                token_acceso: ejemplo
+                expira_en_segundos: 900
+                usuario:
+                  identificador: 11111111-1111-4111-8111-111111111111
+                  nombre_completo: ejemplo
+                  correo: usuario@ejemplo.mx
+                  rol: PROPIETARIO
+                organizacion:
+                  identificador: 11111111-1111-4111-8111-111111111111
+                  nombre_comercial: ejemplo
+                  codigo_moneda: ejemplo
+                  multiplo_redondeo: '70.83'
+                  revision: 1
+                onboarding_completado: true
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RenovacionEntrada'
+            example:
+              token_actualizacion: ejemplo
+  /autenticacion/cierre-sesion:
+    post:
+      operationId: cerrarSesion
+      summary: Revocar la sesión actual
+      tags:
+      - Autenticación
+      responses:
+        '204':
+          description: Operación exitosa
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+  /autenticacion/usuario-actual:
+    get:
+      operationId: obtenerUsuarioActual
+      summary: Recuperar usuario y contexto
+      tags:
+      - Autenticación
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sesion'
+              example:
+                token_acceso: ejemplo
+                expira_en_segundos: 900
+                usuario:
+                  identificador: 11111111-1111-4111-8111-111111111111
+                  nombre_completo: ejemplo
+                  correo: usuario@ejemplo.mx
+                  rol: PROPIETARIO
+                organizacion:
+                  identificador: 11111111-1111-4111-8111-111111111111
+                  nombre_comercial: ejemplo
+                  codigo_moneda: ejemplo
+                  multiplo_redondeo: '70.83'
+                  revision: 1
+                onboarding_completado: true
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+  /perfil:
+    get:
+      operationId: obtenerPerfil
+      summary: Consultar perfil
+      tags:
+      - Cuenta
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Perfil'
+              example:
+                identificador: 11111111-1111-4111-8111-111111111111
+                nombre_para_mostrar: ejemplo
+                especialidades:
+                - 11111111-1111-4111-8111-111111111111
+                revision: 1
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '404':
+          description: No encontrado o recurso ajeno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+              example:
+                detalle:
+                  codigo: NO_ENCONTRADO
+        '422':
+          description: Validación o cálculo bloqueado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
+              example:
+                detalle:
+                  codigo: ERROR_VALIDACION
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+    patch:
+      operationId: actualizarPerfil
+      summary: Actualizar perfil
+      tags:
+      - Cuenta
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Perfil'
+              example:
+                identificador: 11111111-1111-4111-8111-111111111111
+                nombre_para_mostrar: ejemplo
+                especialidades:
+                - 11111111-1111-4111-8111-111111111111
+                revision: 1
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '409':
+          description: Conflicto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error409'
+              example:
+                detalle:
+                  codigo: CORREO_YA_REGISTRADO
+        '422':
+          description: Validación o cálculo bloqueado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
+              example:
+                detalle:
+                  codigo: ERROR_VALIDACION
+        '428':
+          description: Revisión requerida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error428'
+              example:
+                detalle:
+                  codigo: REVISION_REQUERIDA
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+      parameters:
+      - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PerfilActualizar'
+            example:
+              nombre_para_mostrar: ejemplo
+              especialidades:
+              - 11111111-1111-4111-8111-111111111111
+  /organizacion:
+    get:
+      operationId: obtenerOrganizacion
+      summary: Consultar organización
+      tags:
+      - Cuenta
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organizacion'
+              example:
+                identificador: 11111111-1111-4111-8111-111111111111
+                nombre_comercial: ejemplo
+                codigo_moneda: ejemplo
+                multiplo_redondeo: '70.83'
+                revision: 1
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '404':
+          description: No encontrado o recurso ajeno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+              example:
+                detalle:
+                  codigo: NO_ENCONTRADO
+        '422':
+          description: Validación o cálculo bloqueado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
+              example:
+                detalle:
+                  codigo: ERROR_VALIDACION
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+    patch:
+      operationId: actualizarOrganizacion
+      summary: Actualizar organización
+      tags:
+      - Cuenta
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organizacion'
+              example:
+                identificador: 11111111-1111-4111-8111-111111111111
+                nombre_comercial: ejemplo
+                codigo_moneda: ejemplo
+                multiplo_redondeo: '70.83'
+                revision: 1
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '409':
+          description: Conflicto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error409'
+              example:
+                detalle:
+                  codigo: CORREO_YA_REGISTRADO
+        '422':
+          description: Validación o cálculo bloqueado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
+              example:
+                detalle:
+                  codigo: ERROR_VALIDACION
+        '428':
+          description: Revisión requerida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error428'
+              example:
+                detalle:
+                  codigo: REVISION_REQUERIDA
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+      parameters:
+      - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrganizacionActualizar'
+            example:
+              nombre_comercial: ejemplo
+              codigo_moneda: MXN
+              multiplo_redondeo: ejemplo
+              espaciado_por_defecto: 1
+  /especialidades:
+    get:
+      operationId: listarEspecialidades
+      summary: Listar especialidades
+      tags:
+      - Cuenta
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListaEspecialidades'
+              example:
+                elementos:
+                - identificador: 11111111-1111-4111-8111-111111111111
+                  clave: ejemplo
+                  nombre: ejemplo
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+  /onboarding:
+    get:
+      operationId: obtenerOnboarding
+      summary: Consultar progreso de onboarding
+      tags:
+      - Onboarding
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Onboarding'
+              example:
+                seleccion_parcial: {}
+                completado: true
+                revision: 1
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '404':
+          description: No encontrado o recurso ajeno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+              example:
+                detalle:
+                  codigo: NO_ENCONTRADO
+        '422':
+          description: Validación o cálculo bloqueado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
+              example:
+                detalle:
+                  codigo: ERROR_VALIDACION
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+    patch:
+      operationId: actualizarOnboarding
+      summary: Guardar progreso de onboarding
+      tags:
+      - Onboarding
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Onboarding'
+              example:
+                seleccion_parcial: {}
+                completado: true
+                revision: 1
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '409':
+          description: Conflicto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error409'
+              example:
+                detalle:
+                  codigo: CORREO_YA_REGISTRADO
+        '422':
+          description: Validación o cálculo bloqueado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
+              example:
+                detalle:
+                  codigo: ERROR_VALIDACION
+        '428':
+          description: Revisión requerida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error428'
+              example:
+                detalle:
+                  codigo: REVISION_REQUERIDA
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+      parameters:
+      - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OnboardingActualizar'
+            example:
+              ruta: ASISTENTE_GUIADO
+              situacion: YA_ATIENDE_EN_CONSULTA_PRIVADA
+              ultimo_paso: ejemplo
+              seleccion_parcial: {}
+              completado: true
+  /perfil-capacidad:
+    get:
+      operationId: obtenerPerfilCapacidad
+      summary: Consultar capacidad vigente
+      tags:
+      - Capacidad
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PerfilCapacidad'
+              example:
+                identificador: 11111111-1111-4111-8111-111111111111
+                dias_por_semana: 1
+                horas_por_dia: 1
+                porcentaje_ocupacion: 1
+                ocupacion_confirmada: true
+                fecha_inicio_vigencia: '2026-09-01'
+                revision: 1
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '404':
+          description: No encontrado o recurso ajeno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+              example:
+                detalle:
+                  codigo: NO_ENCONTRADO
+        '422':
+          description: Validación o cálculo bloqueado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
+              example:
+                detalle:
+                  codigo: ERROR_VALIDACION
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+    put:
+      operationId: reemplazarPerfilCapacidad
+      summary: Crear nueva capacidad vigente
+      tags:
+      - Capacidad
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PerfilCapacidad'
+              example:
+                identificador: 11111111-1111-4111-8111-111111111111
+                dias_por_semana: 1
+                horas_por_dia: 1
+                porcentaje_ocupacion: 1
+                ocupacion_confirmada: true
+                fecha_inicio_vigencia: '2026-09-01'
+                revision: 1
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '409':
+          description: Conflicto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error409'
+              example:
+                detalle:
+                  codigo: CORREO_YA_REGISTRADO
+        '422':
+          description: Validación o cálculo bloqueado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
+              example:
+                detalle:
+                  codigo: ERROR_VALIDACION
+        '428':
+          description: Revisión requerida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error428'
+              example:
+                detalle:
+                  codigo: REVISION_REQUERIDA
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+      parameters:
+      - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PerfilCapacidadEntrada'
+            example:
+              dias_por_semana: 1
+              horas_por_dia: 1
+              porcentaje_ocupacion: 1
+              ocupacion_confirmada: true
+  /periodicidades-pago:
+    get:
+      operationId: listarPeriodicidadesPago
+      summary: Listar periodicidades
+      tags:
+      - Gastos
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListaPeriodicidades'
+              example:
+                elementos:
+                - codigo: SEMANAL
+                  nombre: ejemplo
+                  factor_mensual: ejemplo
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+  /gastos:
+    get:
+      operationId: listarGastos
+      summary: Listar gastos
+      tags:
+      - Gastos
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginacionGastos'
+              example:
+                elementos:
+                - identificador: 11111111-1111-4111-8111-111111111111
+                  nombre: ejemplo
+                  categoria: FIJO
+                  importe_pagado_por_periodo: '70.83'
+                  codigo_periodicidad: ejemplo
+                  fecha_inicio_vigencia: '2026-09-01'
+                  activo: true
+                  equivalente_mensual: '70.83'
+                  revision: 1
+                siguiente_cursor: ejemplo
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '404':
+          description: No encontrado o recurso ajeno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+              example:
+                detalle:
+                  codigo: NO_ENCONTRADO
+        '422':
+          description: Validación o cálculo bloqueado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
+              example:
+                detalle:
+                  codigo: ERROR_VALIDACION
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+      parameters:
+      - $ref: '#/components/parameters/Limite'
+      - $ref: '#/components/parameters/Cursor'
+    post:
+      operationId: crearGasto
+      summary: Crear gasto
+      tags:
+      - Gastos
+      responses:
+        '201':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Gasto'
+              example:
+                identificador: 11111111-1111-4111-8111-111111111111
+                nombre: ejemplo
+                categoria: FIJO
+                importe_pagado_por_periodo: '70.83'
+                codigo_periodicidad: ejemplo
+                fecha_inicio_vigencia: '2026-09-01'
+                activo: true
+                equivalente_mensual: '70.83'
+                revision: 1
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '409':
+          description: Conflicto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error409'
+              example:
+                detalle:
+                  codigo: CORREO_YA_REGISTRADO
+        '422':
+          description: Validación o cálculo bloqueado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
+              example:
+                detalle:
+                  codigo: ERROR_VALIDACION
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GastoEntrada'
+            example:
+              nombre: ejemplo
+              categoria: FIJO
+              importe_pagado_por_periodo: '70.83'
+              codigo_periodicidad: ejemplo
+              fecha_inicio_vigencia: '2026-09-01'
+  /gastos/{identificador}:
+    patch:
+      operationId: actualizarGasto
+      summary: Actualizar gasto
+      tags:
+      - Gastos
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Gasto'
+              example:
+                identificador: 11111111-1111-4111-8111-111111111111
+                nombre: ejemplo
+                categoria: FIJO
+                importe_pagado_por_periodo: '70.83'
+                codigo_periodicidad: ejemplo
+                fecha_inicio_vigencia: '2026-09-01'
+                activo: true
+                equivalente_mensual: '70.83'
+                revision: 1
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '404':
+          description: No encontrado o recurso ajeno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+              example:
+                detalle:
+                  codigo: NO_ENCONTRADO
+        '409':
+          description: Conflicto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error409'
+              example:
+                detalle:
+                  codigo: CORREO_YA_REGISTRADO
+        '422':
+          description: Validación o cálculo bloqueado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
+              example:
+                detalle:
+                  codigo: ERROR_VALIDACION
+        '428':
+          description: Revisión requerida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error428'
+              example:
+                detalle:
+                  codigo: REVISION_REQUERIDA
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+      parameters:
+      - $ref: '#/components/parameters/IdentificadorRuta'
+      - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GastoActualizar'
+            example:
+              nombre: ejemplo
+              categoria: FIJO
+              importe_pagado_por_periodo: '70.83'
+              codigo_periodicidad: ejemplo
+              fecha_inicio_vigencia: '2026-09-01'
+              activo: true
+    delete:
+      operationId: eliminarGasto
+      summary: Eliminar gasto
+      tags:
+      - Gastos
+      responses:
+        '204':
+          description: Operación exitosa
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '404':
+          description: No encontrado o recurso ajeno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+              example:
+                detalle:
+                  codigo: NO_ENCONTRADO
+        '409':
+          description: Conflicto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error409'
+              example:
+                detalle:
+                  codigo: CORREO_YA_REGISTRADO
+        '428':
+          description: Revisión requerida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error428'
+              example:
+                detalle:
+                  codigo: REVISION_REQUERIDA
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+      parameters:
+      - $ref: '#/components/parameters/IdentificadorRuta'
+      - $ref: '#/components/parameters/IfMatch'
+  /equipos:
+    get:
+      operationId: listarEquipos
+      summary: Listar equipos
+      tags:
+      - Equipos
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginacionEquipos'
+              example:
+                elementos:
+                - identificador: 11111111-1111-4111-8111-111111111111
+                  nombre: ejemplo
+                  precio_adquisicion: '70.83'
+                  valor_residual: '70.83'
+                  vida_util_anios: 1
+                  estado: ACTIVO
+                  depreciacion_mensual: '70.83'
+                  revision: 1
+                siguiente_cursor: ejemplo
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '404':
+          description: No encontrado o recurso ajeno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+              example:
+                detalle:
+                  codigo: NO_ENCONTRADO
+        '422':
+          description: Validación o cálculo bloqueado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
+              example:
+                detalle:
+                  codigo: ERROR_VALIDACION
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+      parameters:
+      - $ref: '#/components/parameters/Limite'
+      - $ref: '#/components/parameters/Cursor'
+    post:
+      operationId: crearEquipo
+      summary: Crear equipo
+      tags:
+      - Equipos
+      responses:
+        '201':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Equipo'
+              example:
+                identificador: 11111111-1111-4111-8111-111111111111
+                nombre: ejemplo
+                precio_adquisicion: '70.83'
+                valor_residual: '70.83'
+                vida_util_anios: 1
+                estado: ACTIVO
+                depreciacion_mensual: '70.83'
+                revision: 1
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '409':
+          description: Conflicto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error409'
+              example:
+                detalle:
+                  codigo: CORREO_YA_REGISTRADO
+        '422':
+          description: Validación o cálculo bloqueado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
+              example:
+                detalle:
+                  codigo: ERROR_VALIDACION
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EquipoEntrada'
+            example:
+              nombre: ejemplo
+              precio_adquisicion: '70.83'
+              valor_residual: '70.83'
+              vida_util_anios: 1
+              estado: ACTIVO
+  /equipos/{identificador}:
+    patch:
+      operationId: actualizarEquipo
+      summary: Actualizar equipo
+      tags:
+      - Equipos
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Equipo'
+              example:
+                identificador: 11111111-1111-4111-8111-111111111111
+                nombre: ejemplo
+                precio_adquisicion: '70.83'
+                valor_residual: '70.83'
+                vida_util_anios: 1
+                estado: ACTIVO
+                depreciacion_mensual: '70.83'
+                revision: 1
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '404':
+          description: No encontrado o recurso ajeno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+              example:
+                detalle:
+                  codigo: NO_ENCONTRADO
+        '409':
+          description: Conflicto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error409'
+              example:
+                detalle:
+                  codigo: CORREO_YA_REGISTRADO
+        '422':
+          description: Validación o cálculo bloqueado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
+              example:
+                detalle:
+                  codigo: ERROR_VALIDACION
+        '428':
+          description: Revisión requerida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error428'
+              example:
+                detalle:
+                  codigo: REVISION_REQUERIDA
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+      parameters:
+      - $ref: '#/components/parameters/IdentificadorRuta'
+      - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EquipoActualizar'
+            example:
+              nombre: ejemplo
+              precio_adquisicion: '70.83'
+              valor_residual: '70.83'
+              vida_util_anios: 1
+              fecha_alta_en_servicio: '2026-09-01'
+              estado: ACTIVO
+    delete:
+      operationId: eliminarEquipo
+      summary: Eliminar equipo
+      tags:
+      - Equipos
+      responses:
+        '204':
+          description: Operación exitosa
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '404':
+          description: No encontrado o recurso ajeno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+              example:
+                detalle:
+                  codigo: NO_ENCONTRADO
+        '409':
+          description: Conflicto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error409'
+              example:
+                detalle:
+                  codigo: CORREO_YA_REGISTRADO
+        '428':
+          description: Revisión requerida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error428'
+              example:
+                detalle:
+                  codigo: REVISION_REQUERIDA
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+      parameters:
+      - $ref: '#/components/parameters/IdentificadorRuta'
+      - $ref: '#/components/parameters/IfMatch'
+  /costos-indirectos/resumen:
+    get:
+      operationId: obtenerResumenCostosIndirectos
+      summary: Obtener costos indirectos y costo por minuto
+      tags:
+      - Costeo
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResumenCostosIndirectos'
+              example:
+                gastos_fijos: '70.83'
+                gastos_variables: '70.83'
+                depreciacion: '70.83'
+                total_mensual: '70.83'
+                minutos_disponibles: 1
+                minutos_efectivos: 1
+                bloqueos:
+                - codigo: GASTO_NEGATIVO
+                  paso: 1
+                  mensaje: ejemplo
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '422':
+          description: Validación o cálculo bloqueado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
+              example:
+                detalle:
+                  codigo: ERROR_VALIDACION
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+  /unidades-medida:
+    get:
+      operationId: listarUnidadesMedida
+      summary: Listar unidades de medida
+      tags:
+      - Insumos
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListaUnidades'
+              example:
+                elementos:
+                - codigo: ejemplo
+                  nombre: ejemplo
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+  /insumos:
+    get:
+      operationId: listarInsumos
+      summary: Listar insumos
+      tags:
+      - Insumos
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginacionInsumos'
+              example:
+                elementos:
+                - identificador: 11111111-1111-4111-8111-111111111111
+                  nombre: ejemplo
+                  codigo_unidad: ejemplo
+                  cantidad_contenida: 1
+                  precio_presentacion: '70.83'
+                  costo_unitario: '70.83'
+                  archivado: true
+                  usado_en_recetas: 1
+                  revision: 1
+                siguiente_cursor: ejemplo
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '404':
+          description: No encontrado o recurso ajeno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+              example:
+                detalle:
+                  codigo: NO_ENCONTRADO
+        '422':
+          description: Validación o cálculo bloqueado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
+              example:
+                detalle:
+                  codigo: ERROR_VALIDACION
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+      parameters:
+      - $ref: '#/components/parameters/Limite'
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Busqueda'
+      - $ref: '#/components/parameters/Archivados'
+    post:
+      operationId: crearInsumo
+      summary: Crear insumo y precio inicial
+      tags:
+      - Insumos
+      responses:
+        '201':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Insumo'
+              example:
+                identificador: 11111111-1111-4111-8111-111111111111
+                nombre: ejemplo
+                codigo_unidad: ejemplo
+                cantidad_contenida: 1
+                precio_presentacion: '70.83'
+                costo_unitario: '70.83'
+                archivado: true
+                usado_en_recetas: 1
+                revision: 1
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '409':
+          description: Conflicto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error409'
+              example:
+                detalle:
+                  codigo: CORREO_YA_REGISTRADO
+        '422':
+          description: Validación o cálculo bloqueado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
+              example:
+                detalle:
+                  codigo: ERROR_VALIDACION
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InsumoEntrada'
+            example:
+              nombre: ejemplo
+              codigo_unidad: ejemplo
+              cantidad_contenida: 1
+              precio_presentacion: '70.83'
+  /insumos/{identificador}:
+    patch:
+      operationId: actualizarInsumo
+      summary: Actualizar insumo; un cambio de precio crea historial
+      tags:
+      - Insumos
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Insumo'
+              example:
+                identificador: 11111111-1111-4111-8111-111111111111
+                nombre: ejemplo
+                codigo_unidad: ejemplo
+                cantidad_contenida: 1
+                precio_presentacion: '70.83'
+                costo_unitario: '70.83'
+                archivado: true
+                usado_en_recetas: 1
+                revision: 1
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '404':
+          description: No encontrado o recurso ajeno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+              example:
+                detalle:
+                  codigo: NO_ENCONTRADO
+        '409':
+          description: Conflicto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error409'
+              example:
+                detalle:
+                  codigo: CORREO_YA_REGISTRADO
+        '422':
+          description: Validación o cálculo bloqueado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
+              example:
+                detalle:
+                  codigo: ERROR_VALIDACION
+        '428':
+          description: Revisión requerida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error428'
+              example:
+                detalle:
+                  codigo: REVISION_REQUERIDA
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+      parameters:
+      - $ref: '#/components/parameters/IdentificadorRuta'
+      - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InsumoActualizar'
+            example:
+              nombre: ejemplo
+              presentacion: ejemplo
+              codigo_unidad: ejemplo
+              cantidad_contenida: 1
+              precio_presentacion: '70.83'
+    delete:
+      operationId: eliminarInsumo
+      summary: Eliminar insumo sin uso
+      tags:
+      - Insumos
+      responses:
+        '204':
+          description: Operación exitosa
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '404':
+          description: No encontrado o recurso ajeno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+              example:
+                detalle:
+                  codigo: NO_ENCONTRADO
+        '409':
+          description: Conflicto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error409'
+              example:
+                detalle:
+                  codigo: CORREO_YA_REGISTRADO
+        '428':
+          description: Revisión requerida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error428'
+              example:
+                detalle:
+                  codigo: REVISION_REQUERIDA
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+      parameters:
+      - $ref: '#/components/parameters/IdentificadorRuta'
+      - $ref: '#/components/parameters/IfMatch'
+  /insumos/{identificador}/archivar:
+    post:
+      operationId: archivarInsumo
+      summary: Archivar insumo
+      tags:
+      - Insumos
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Insumo'
+              example:
+                identificador: 11111111-1111-4111-8111-111111111111
+                nombre: ejemplo
+                codigo_unidad: ejemplo
+                cantidad_contenida: 1
+                precio_presentacion: '70.83'
+                costo_unitario: '70.83'
+                archivado: true
+                usado_en_recetas: 1
+                revision: 1
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '404':
+          description: No encontrado o recurso ajeno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+              example:
+                detalle:
+                  codigo: NO_ENCONTRADO
+        '409':
+          description: Conflicto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error409'
+              example:
+                detalle:
+                  codigo: CORREO_YA_REGISTRADO
+        '428':
+          description: Revisión requerida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error428'
+              example:
+                detalle:
+                  codigo: REVISION_REQUERIDA
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+      parameters:
+      - $ref: '#/components/parameters/IdentificadorRuta'
+      - $ref: '#/components/parameters/IfMatch'
+  /insumos/{identificador}/restaurar:
+    post:
+      operationId: restaurarInsumo
+      summary: Restaurar insumo
+      tags:
+      - Insumos
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Insumo'
+              example:
+                identificador: 11111111-1111-4111-8111-111111111111
+                nombre: ejemplo
+                codigo_unidad: ejemplo
+                cantidad_contenida: 1
+                precio_presentacion: '70.83'
+                costo_unitario: '70.83'
+                archivado: true
+                usado_en_recetas: 1
+                revision: 1
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '404':
+          description: No encontrado o recurso ajeno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+              example:
+                detalle:
+                  codigo: NO_ENCONTRADO
+        '409':
+          description: Conflicto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error409'
+              example:
+                detalle:
+                  codigo: CORREO_YA_REGISTRADO
+        '428':
+          description: Revisión requerida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error428'
+              example:
+                detalle:
+                  codigo: REVISION_REQUERIDA
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+      parameters:
+      - $ref: '#/components/parameters/IdentificadorRuta'
+      - $ref: '#/components/parameters/IfMatch'
+  /insumos/{identificador}/precios:
+    get:
+      operationId: listarPreciosInsumo
+      summary: Consultar historial de precios
+      tags:
+      - Insumos
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListaPreciosInsumo'
+              example:
+                elementos:
+                - identificador: 11111111-1111-4111-8111-111111111111
+                  precio_presentacion: '70.83'
+                  cantidad_contenida: '70.83'
+                  costo_unitario: '70.83'
+                  fecha_inicio_vigencia: '2026-09-01'
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '404':
+          description: No encontrado o recurso ajeno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+              example:
+                detalle:
+                  codigo: NO_ENCONTRADO
+        '422':
+          description: Validación o cálculo bloqueado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
+              example:
+                detalle:
+                  codigo: ERROR_VALIDACION
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+      parameters:
+      - $ref: '#/components/parameters/IdentificadorRuta'
+  /periodos-mensuales:
+    get:
+      operationId: listarPeriodosMensuales
+      summary: Listar periodos mensuales
+      tags:
+      - Datos mensuales
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginacionPeriodos'
+              example:
+                elementos:
+                - identificador: 11111111-1111-4111-8111-111111111111
+                  mes: '2026-09-01'
+                  estado: VIGENTE
+                  numero_version: 1
+                  revision: 1
+                siguiente_cursor: ejemplo
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '404':
+          description: No encontrado o recurso ajeno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+              example:
+                detalle:
+                  codigo: NO_ENCONTRADO
+        '422':
+          description: Validación o cálculo bloqueado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
+              example:
+                detalle:
+                  codigo: ERROR_VALIDACION
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+      parameters:
+      - $ref: '#/components/parameters/Limite'
+      - $ref: '#/components/parameters/Cursor'
+    post:
+      operationId: crearPeriodoMensual
+      summary: Crear periodo mensual
+      tags:
+      - Datos mensuales
+      responses:
+        '201':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PeriodoMensual'
+              example:
+                identificador: 11111111-1111-4111-8111-111111111111
+                mes: '2026-09-01'
+                estado: VIGENTE
+                numero_version: 1
+                revision: 1
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '409':
+          description: Conflicto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error409'
+              example:
+                detalle:
+                  codigo: CORREO_YA_REGISTRADO
+        '422':
+          description: Validación o cálculo bloqueado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
+              example:
+                detalle:
+                  codigo: ERROR_VALIDACION
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PeriodoMensualEntrada'
+            example:
+              mes: '2026-09-01'
+              consumo_materiales: '70.83'
+              tratamientos_atendidos: 1
+              procedencia: ESTE_MES
+  /periodos-mensuales/{identificador}:
+    get:
+      operationId: obtenerPeriodoMensual
+      summary: Consultar periodo mensual
+      tags:
+      - Datos mensuales
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PeriodoMensual'
+              example:
+                identificador: 11111111-1111-4111-8111-111111111111
+                mes: '2026-09-01'
+                estado: VIGENTE
+                numero_version: 1
+                revision: 1
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '404':
+          description: No encontrado o recurso ajeno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+              example:
+                detalle:
+                  codigo: NO_ENCONTRADO
+        '422':
+          description: Validación o cálculo bloqueado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
+              example:
+                detalle:
+                  codigo: ERROR_VALIDACION
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+      parameters:
+      - $ref: '#/components/parameters/IdentificadorRuta'
+  /periodos-mensuales/{identificador}/correcciones:
+    post:
+      operationId: corregirPeriodoMensual
+      summary: Crear corrección versionada
+      tags:
+      - Datos mensuales
+      responses:
+        '201':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PeriodoMensual'
+              example:
+                identificador: 11111111-1111-4111-8111-111111111111
+                mes: '2026-09-01'
+                estado: VIGENTE
+                numero_version: 1
+                revision: 1
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '404':
+          description: No encontrado o recurso ajeno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+              example:
+                detalle:
+                  codigo: NO_ENCONTRADO
+        '409':
+          description: Conflicto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error409'
+              example:
+                detalle:
+                  codigo: CORREO_YA_REGISTRADO
+        '422':
+          description: Validación o cálculo bloqueado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
+              example:
+                detalle:
+                  codigo: ERROR_VALIDACION
+        '428':
+          description: Revisión requerida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error428'
+              example:
+                detalle:
+                  codigo: REVISION_REQUERIDA
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+      parameters:
+      - $ref: '#/components/parameters/IdentificadorRuta'
+      - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CorreccionPeriodoEntrada'
+            example:
+              consumo_materiales: '70.83'
+              tratamientos_atendidos: 1
+              procedencia: ESTE_MES
+  /periodos-mensuales/{identificador}/anular:
+    post:
+      operationId: anularPeriodoMensual
+      summary: Anular periodo con una nueva versión
+      tags:
+      - Datos mensuales
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PeriodoMensual'
+              example:
+                identificador: 11111111-1111-4111-8111-111111111111
+                mes: '2026-09-01'
+                estado: VIGENTE
+                numero_version: 1
+                revision: 1
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '404':
+          description: No encontrado o recurso ajeno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+              example:
+                detalle:
+                  codigo: NO_ENCONTRADO
+        '409':
+          description: Conflicto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error409'
+              example:
+                detalle:
+                  codigo: CORREO_YA_REGISTRADO
+        '428':
+          description: Revisión requerida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error428'
+              example:
+                detalle:
+                  codigo: REVISION_REQUERIDA
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+      parameters:
+      - $ref: '#/components/parameters/IdentificadorRuta'
+      - $ref: '#/components/parameters/IfMatch'
+  /periodos-mensuales/{identificador}/restaurar:
+    post:
+      operationId: restaurarPeriodoMensual
+      summary: Restaurar última versión no anulada
+      tags:
+      - Datos mensuales
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PeriodoMensual'
+              example:
+                identificador: 11111111-1111-4111-8111-111111111111
+                mes: '2026-09-01'
+                estado: VIGENTE
+                numero_version: 1
+                revision: 1
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '404':
+          description: No encontrado o recurso ajeno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+              example:
+                detalle:
+                  codigo: NO_ENCONTRADO
+        '409':
+          description: Conflicto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error409'
+              example:
+                detalle:
+                  codigo: CORREO_YA_REGISTRADO
+        '428':
+          description: Revisión requerida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error428'
+              example:
+                detalle:
+                  codigo: REVISION_REQUERIDA
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+      parameters:
+      - $ref: '#/components/parameters/IdentificadorRuta'
+      - $ref: '#/components/parameters/IfMatch'
+  /periodos-mensuales/promedio-materiales:
+    get:
+      operationId: obtenerPromedioMateriales
+      summary: Obtener promedio ponderado de materiales
+      tags:
+      - Costeo
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromedioMateriales'
+              example:
+                importe_por_tratamiento: '70.83'
+                madurez: SIN_BASE
+                periodos_incluidos:
+                - 11111111-1111-4111-8111-111111111111
+                periodos_excluidos:
+                - {}
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '422':
+          description: Validación o cálculo bloqueado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
+              example:
+                detalle:
+                  codigo: ERROR_VALIDACION
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+  /plantillas-tratamiento:
+    get:
+      operationId: listarPlantillasTratamiento
+      summary: Listar plantillas
+      tags:
+      - Plantillas
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListaPlantillas'
+              example:
+                elementos:
+                - clave: ejemplo
+                  nombre: ejemplo
+                  especialidad: ejemplo
+                  duracion_clinica: 1
+                  materiales_sugeridos:
+                  - ejemplo
+                  agregado: true
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+      parameters:
+      - $ref: '#/components/parameters/Especialidad'
+      - $ref: '#/components/parameters/MisAreas'
+  /tratamientos/importar-plantillas:
+    post:
+      operationId: importarPlantillasTratamiento
+      summary: Importar plantillas sin duplicar
+      tags:
+      - Plantillas
+      responses:
+        '201':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListaTratamientos'
+              example:
+                elementos:
+                - identificador: 11111111-1111-4111-8111-111111111111
+                  nombre: ejemplo
+                  especialidad: ejemplo
+                  duracion_clinica: 1
+                  receta:
+                  - identificador_insumo: 11111111-1111-4111-8111-111111111111
+                    cantidad: 1
+                  ajuste_porcentaje: 1
+                  estado: BORRADOR
+                  revision: 1
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '409':
+          description: Conflicto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error409'
+              example:
+                detalle:
+                  codigo: CORREO_YA_REGISTRADO
+        '422':
+          description: Validación o cálculo bloqueado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
+              example:
+                detalle:
+                  codigo: ERROR_VALIDACION
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImportarPlantillasEntrada'
+            example:
+              claves:
+              - ejemplo
+              version_catalogo: 2026-09-16.1
+  /tratamientos:
+    get:
+      operationId: listarTratamientos
+      summary: Listar tratamientos
+      tags:
+      - Tratamientos
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginacionTratamientos'
+              example:
+                elementos:
+                - identificador: 11111111-1111-4111-8111-111111111111
+                  nombre: ejemplo
+                  especialidad: ejemplo
+                  duracion_clinica: 1
+                  receta:
+                  - identificador_insumo: 11111111-1111-4111-8111-111111111111
+                    cantidad: 1
+                  ajuste_porcentaje: 1
+                  estado: BORRADOR
+                  revision: 1
+                siguiente_cursor: ejemplo
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '404':
+          description: No encontrado o recurso ajeno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+              example:
+                detalle:
+                  codigo: NO_ENCONTRADO
+        '422':
+          description: Validación o cálculo bloqueado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
+              example:
+                detalle:
+                  codigo: ERROR_VALIDACION
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+      parameters:
+      - $ref: '#/components/parameters/Limite'
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Busqueda'
+      - $ref: '#/components/parameters/Estado'
+      - $ref: '#/components/parameters/Archivados'
+    post:
+      operationId: crearTratamiento
+      summary: Crear tratamiento idempotente
+      tags:
+      - Tratamientos
+      responses:
+        '201':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tratamiento'
+              example:
+                identificador: 11111111-1111-4111-8111-111111111111
+                nombre: ejemplo
+                especialidad: ejemplo
+                duracion_clinica: 1
+                receta:
+                - identificador_insumo: 11111111-1111-4111-8111-111111111111
+                  cantidad: 1
+                ajuste_porcentaje: 1
+                estado: BORRADOR
+                revision: 1
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '409':
+          description: Conflicto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error409'
+              example:
+                detalle:
+                  codigo: CORREO_YA_REGISTRADO
+        '422':
+          description: Validación o cálculo bloqueado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
+              example:
+                detalle:
+                  codigo: ERROR_VALIDACION
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TratamientoEntrada'
+            example:
+              nombre: ejemplo
+              especialidad: ejemplo
+              duracion_clinica: 1
+  /tratamientos/{identificador}:
+    get:
+      operationId: obtenerTratamiento
+      summary: Consultar tratamiento
+      tags:
+      - Tratamientos
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tratamiento'
+              example:
+                identificador: 11111111-1111-4111-8111-111111111111
+                nombre: ejemplo
+                especialidad: ejemplo
+                duracion_clinica: 1
+                receta:
+                - identificador_insumo: 11111111-1111-4111-8111-111111111111
+                  cantidad: 1
+                ajuste_porcentaje: 1
+                estado: BORRADOR
+                revision: 1
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '404':
+          description: No encontrado o recurso ajeno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+              example:
+                detalle:
+                  codigo: NO_ENCONTRADO
+        '422':
+          description: Validación o cálculo bloqueado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
+              example:
+                detalle:
+                  codigo: ERROR_VALIDACION
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+      parameters:
+      - $ref: '#/components/parameters/IdentificadorRuta'
+  /tratamientos/{identificador}/configuracion:
+    put:
+      operationId: guardarConfiguracionTratamiento
+      summary: Guardar versión de configuración
+      tags:
+      - Tratamientos
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tratamiento'
+              example:
+                identificador: 11111111-1111-4111-8111-111111111111
+                nombre: ejemplo
+                especialidad: ejemplo
+                duracion_clinica: 1
+                receta:
+                - identificador_insumo: 11111111-1111-4111-8111-111111111111
+                  cantidad: 1
+                ajuste_porcentaje: 1
+                estado: BORRADOR
+                revision: 1
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '404':
+          description: No encontrado o recurso ajeno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+              example:
+                detalle:
+                  codigo: NO_ENCONTRADO
+        '409':
+          description: Conflicto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error409'
+              example:
+                detalle:
+                  codigo: CORREO_YA_REGISTRADO
+        '422':
+          description: Validación o cálculo bloqueado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
+              example:
+                detalle:
+                  codigo: ERROR_VALIDACION
+        '428':
+          description: Revisión requerida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error428'
+              example:
+                detalle:
+                  codigo: REVISION_REQUERIDA
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+      parameters:
+      - $ref: '#/components/parameters/IdentificadorRuta'
+      - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfiguracionTratamientoEntrada'
+            example:
+              nombre: ejemplo
+              especialidad: ejemplo
+              duracion_clinica: 1
+              receta:
+              - identificador_insumo: 11111111-1111-4111-8111-111111111111
+                cantidad: 1
+              ajuste_porcentaje: 1
+  /tratamientos/{identificador}/archivar:
+    post:
+      operationId: archivarTratamiento
+      summary: Archivar tratamiento
+      tags:
+      - Tratamientos
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tratamiento'
+              example:
+                identificador: 11111111-1111-4111-8111-111111111111
+                nombre: ejemplo
+                especialidad: ejemplo
+                duracion_clinica: 1
+                receta:
+                - identificador_insumo: 11111111-1111-4111-8111-111111111111
+                  cantidad: 1
+                ajuste_porcentaje: 1
+                estado: BORRADOR
+                revision: 1
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '404':
+          description: No encontrado o recurso ajeno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+              example:
+                detalle:
+                  codigo: NO_ENCONTRADO
+        '409':
+          description: Conflicto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error409'
+              example:
+                detalle:
+                  codigo: CORREO_YA_REGISTRADO
+        '428':
+          description: Revisión requerida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error428'
+              example:
+                detalle:
+                  codigo: REVISION_REQUERIDA
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+      parameters:
+      - $ref: '#/components/parameters/IdentificadorRuta'
+      - $ref: '#/components/parameters/IfMatch'
+  /tratamientos/{identificador}/restaurar:
+    post:
+      operationId: restaurarTratamiento
+      summary: Restaurar tratamiento
+      tags:
+      - Tratamientos
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tratamiento'
+              example:
+                identificador: 11111111-1111-4111-8111-111111111111
+                nombre: ejemplo
+                especialidad: ejemplo
+                duracion_clinica: 1
+                receta:
+                - identificador_insumo: 11111111-1111-4111-8111-111111111111
+                  cantidad: 1
+                ajuste_porcentaje: 1
+                estado: BORRADOR
+                revision: 1
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '404':
+          description: No encontrado o recurso ajeno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+              example:
+                detalle:
+                  codigo: NO_ENCONTRADO
+        '409':
+          description: Conflicto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error409'
+              example:
+                detalle:
+                  codigo: CORREO_YA_REGISTRADO
+        '428':
+          description: Revisión requerida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error428'
+              example:
+                detalle:
+                  codigo: REVISION_REQUERIDA
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+      parameters:
+      - $ref: '#/components/parameters/IdentificadorRuta'
+      - $ref: '#/components/parameters/IfMatch'
+  /tratamientos/materiales-sugeridos:
+    get:
+      operationId: listarMaterialesSugeridos
+      summary: Listar materiales sugeridos agrupados
+      tags:
+      - Plantillas
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListaMaterialesSugeridos'
+              example:
+                elementos:
+                - nombre_generico: ejemplo
+                  numero_tratamientos: 1
+                  identificadores_tratamientos:
+                  - 11111111-1111-4111-8111-111111111111
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '404':
+          description: No encontrado o recurso ajeno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+              example:
+                detalle:
+                  codigo: NO_ENCONTRADO
+        '422':
+          description: Validación o cálculo bloqueado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
+              example:
+                detalle:
+                  codigo: ERROR_VALIDACION
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+  /tratamientos/materiales-sugeridos/vincular:
+    post:
+      operationId: vincularMaterialSugerido
+      summary: Vincular insumo a tratamientos
+      tags:
+      - Plantillas
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultadoVinculacion'
+              example:
+                tratamientos_actualizados: 1
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '404':
+          description: No encontrado o recurso ajeno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+              example:
+                detalle:
+                  codigo: NO_ENCONTRADO
+        '409':
+          description: Conflicto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error409'
+              example:
+                detalle:
+                  codigo: CORREO_YA_REGISTRADO
+        '422':
+          description: Validación o cálculo bloqueado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
+              example:
+                detalle:
+                  codigo: ERROR_VALIDACION
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VincularMaterialEntrada'
+            example:
+              nombre_generico: ejemplo
+              identificador_insumo: 11111111-1111-4111-8111-111111111111
+              cantidades:
+              - identificador_tratamiento: 11111111-1111-4111-8111-111111111111
+  /tratamientos/{identificador}/vista-previa:
+    post:
+      operationId: obtenerVistaPreviaTratamiento
+      summary: Calcular vista previa sin guardar
+      tags:
+      - Costeo
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VistaPrevia'
+              example:
+                estado: completo
+                bloqueos:
+                - codigo: GASTO_NEGATIVO
+                  paso: 1
+                  mensaje: ejemplo
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '404':
+          description: No encontrado o recurso ajeno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+              example:
+                detalle:
+                  codigo: NO_ENCONTRADO
+        '422':
+          description: Validación o cálculo bloqueado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
+              example:
+                detalle:
+                  codigo: ERROR_VALIDACION
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+      parameters:
+      - $ref: '#/components/parameters/IdentificadorRuta'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VistaPreviaEntrada'
+            example:
+              configuracion:
+                nombre: ejemplo
+                especialidad: ejemplo
+                duracion_clinica: 1
+                receta:
+                - identificador_insumo: 11111111-1111-4111-8111-111111111111
+                  cantidad: 1
+                ajuste_porcentaje: 1
+  /tratamientos/{identificador}/calculos:
+    post:
+      operationId: emitirCalculoTratamiento
+      summary: Calcular y guardar hoja de costos atómicamente
+      tags:
+      - Costeo
+      responses:
+        '201':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HojaCostos'
+              example:
+                identificador: 11111111-1111-4111-8111-111111111111
+                identificador_tratamiento: 11111111-1111-4111-8111-111111111111
+                fecha_creacion: '2026-09-24T12:00:00Z'
+                datos_aplicados: {}
+                aportes:
+                - {}
+                minutos_disponibles: 1
+                minutos_efectivos: 1
+                costo_por_minuto: '70.83'
+                minutos_imputados: 1
+                lineas_insumo:
+                - {}
+                periodos:
+                - {}
+                resultado:
+                  costo_tiempo: '70.83'
+                  materiales_generales: '70.83'
+                  materiales_especiales: '70.83'
+                  costo_total: '70.83'
+                  ajuste_porcentaje: 1
+                  importe_ajustado: '70.83'
+                  precio_sugerido: '70.83'
+                  margen_porcentaje: 1
+                  semaforo: BAJO
+                version_formula: ejemplo
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '404':
+          description: No encontrado o recurso ajeno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+              example:
+                detalle:
+                  codigo: NO_ENCONTRADO
+        '409':
+          description: Conflicto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error409'
+              example:
+                detalle:
+                  codigo: CORREO_YA_REGISTRADO
+        '422':
+          description: Validación o cálculo bloqueado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
+              example:
+                detalle:
+                  codigo: ERROR_VALIDACION
+        '428':
+          description: Revisión requerida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error428'
+              example:
+                detalle:
+                  codigo: REVISION_REQUERIDA
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+      parameters:
+      - $ref: '#/components/parameters/IdentificadorRuta'
+      - $ref: '#/components/parameters/IfMatch'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CalculoEntrada'
+            example:
+              revision_tratamiento: 1
+  /tratamientos/{identificador}/hojas-costos:
+    get:
+      operationId: listarHojasCostosTratamiento
+      summary: Listar historial de hojas
+      tags:
+      - Historial
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginacionHojas'
+              example:
+                elementos:
+                - identificador: 11111111-1111-4111-8111-111111111111
+                  fecha_creacion: '2026-09-24T12:00:00Z'
+                  resultado:
+                    costo_tiempo: '70.83'
+                    materiales_generales: '70.83'
+                    materiales_especiales: '70.83'
+                    costo_total: '70.83'
+                    ajuste_porcentaje: 1
+                    importe_ajustado: '70.83'
+                    precio_sugerido: '70.83'
+                    margen_porcentaje: 1
+                    semaforo: BAJO
+                  metodo_materiales: ejemplo
+                  vigente: true
+                siguiente_cursor: ejemplo
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '404':
+          description: No encontrado o recurso ajeno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+              example:
+                detalle:
+                  codigo: NO_ENCONTRADO
+        '422':
+          description: Validación o cálculo bloqueado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
+              example:
+                detalle:
+                  codigo: ERROR_VALIDACION
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+      parameters:
+      - $ref: '#/components/parameters/IdentificadorRuta'
+      - $ref: '#/components/parameters/Limite'
+      - $ref: '#/components/parameters/Cursor'
+  /hojas-costos/{identificador}:
+    get:
+      operationId: obtenerHojaCostos
+      summary: Consultar snapshot histórico
+      tags:
+      - Historial
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HojaCostos'
+              example:
+                identificador: 11111111-1111-4111-8111-111111111111
+                identificador_tratamiento: 11111111-1111-4111-8111-111111111111
+                fecha_creacion: '2026-09-24T12:00:00Z'
+                datos_aplicados: {}
+                aportes:
+                - {}
+                minutos_disponibles: 1
+                minutos_efectivos: 1
+                costo_por_minuto: '70.83'
+                minutos_imputados: 1
+                lineas_insumo:
+                - {}
+                periodos:
+                - {}
+                resultado:
+                  costo_tiempo: '70.83'
+                  materiales_generales: '70.83'
+                  materiales_especiales: '70.83'
+                  costo_total: '70.83'
+                  ajuste_porcentaje: 1
+                  importe_ajustado: '70.83'
+                  precio_sugerido: '70.83'
+                  margen_porcentaje: 1
+                  semaforo: BAJO
+                version_formula: ejemplo
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '404':
+          description: No encontrado o recurso ajeno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+              example:
+                detalle:
+                  codigo: NO_ENCONTRADO
+        '422':
+          description: Validación o cálculo bloqueado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
+              example:
+                detalle:
+                  codigo: ERROR_VALIDACION
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+      parameters:
+      - $ref: '#/components/parameters/IdentificadorRuta'
+  /inicio/resumen:
+    get:
+      operationId: obtenerResumenInicio
+      summary: Obtener siguiente paso, KPI y recientes
+      tags:
+      - Inicio
+      responses:
+        '200':
+          description: Operación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InicioResumen'
+              example:
+                siguiente_paso: {}
+                kpi: {}
+                recientes:
+                - identificador: 11111111-1111-4111-8111-111111111111
+                  fecha_creacion: '2026-09-24T12:00:00Z'
+                  resultado:
+                    costo_tiempo: '70.83'
+                    materiales_generales: '70.83'
+                    materiales_especiales: '70.83'
+                    costo_total: '70.83'
+                    ajuste_porcentaje: 1
+                    importe_ajustado: '70.83'
+                    precio_sugerido: '70.83'
+                    margen_porcentaje: 1
+                    semaforo: BAJO
+                  metodo_materiales: ejemplo
+                  vigente: true
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+              example:
+                detalle:
+                  codigo: CREDENCIALES_INVALIDAS
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
+              example:
+                detalle:
+                  codigo: SIN_PERMISO
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+              example:
+                detalle:
+                  codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+components:
+  securitySchemes:
+    BearerJWT:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT de acceso con vigencia de 15 minutos.
+  parameters:
+    IdentificadorRuta:
+      name: identificador
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Limite:
+      name: limite
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+    Busqueda:
+      name: busqueda
+      in: query
+      required: false
+      schema:
+        type: string
+    Archivados:
+      name: archivados
+      in: query
+      required: false
+      schema:
+        type: boolean
+        default: false
+    Estado:
+      name: estado
+      in: query
+      required: false
+      schema:
+        type: string
+    Especialidad:
+      name: especialidad
+      in: query
+      required: false
+      schema:
+        type: string
+    MisAreas:
+      name: mis_areas
+      in: query
+      required: false
+      schema:
+        type: boolean
+        default: false
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      schema:
+        type: string
+        pattern: ^\"?[0-9]+\"?$
+      description: Revisión esperada del recurso.
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 128
+      description: Clave única por intento lógico.
+  schemas:
+    CampoError:
+      type: object
+      additionalProperties: false
+      properties:
+        campo:
+          type: string
+        mensaje:
+          type: string
+      required:
+      - campo
+      - mensaje
+    BloqueoCalculo:
+      type: object
+      additionalProperties: false
+      properties:
+        codigo:
+          type: string
+          enum:
+          - GASTO_NEGATIVO
+          - EQUIPO_INCOMPLETO
+          - SIN_COSTOS_INDIRECTOS_REGISTRADOS
+          - SIN_PERFIL_CAPACIDAD
+          - SIN_TIEMPO_ATENCION
+          - DURACION_INVALIDA
+          - ESPACIADO_FUERA_RANGO
+          - SIN_METODO_MATERIALES
+          - SIN_MESES_VALIDOS
+          - INSUMO_ESPECIFICO_INVALIDO
+          - RECETA_INCOMPLETA
+          - IMPORTE_MATERIALES_FALTANTE
+          - MATERIALES_EN_CERO
+          - AJUSTE_FUERA_RANGO
+        paso:
+          type: integer
+          minimum: 1
+          maximum: 7
+        mensaje:
+          type: string
+        identificador_recurso:
+          oneOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        campo:
+          oneOf:
+          - type: string
+          - type: 'null'
+      required:
+      - codigo
+      - paso
+      - mensaje
+    DetalleError:
+      type: object
+      additionalProperties: false
+      properties:
+        codigo:
+          type: string
+        mensaje:
+          type: string
+        campos:
+          type: array
+          items:
+            $ref: '#/components/schemas/CampoError'
+          default: []
+        bloqueos:
+          type: array
+          items:
+            $ref: '#/components/schemas/BloqueoCalculo'
+          default: []
+        revision_actual:
+          oneOf:
+          - type: integer
+            minimum: 0
+          - type: 'null'
+        request_id:
+          oneOf:
+          - type: string
+          - type: 'null'
+      required:
+      - codigo
+      - mensaje
+    Error:
+      type: object
+      additionalProperties: false
+      properties:
+        detalle:
+          $ref: '#/components/schemas/DetalleError'
+      required:
+      - detalle
+    Error401:
+      type: object
+      additionalProperties: false
+      properties:
+        detalle:
+          allOf:
+          - $ref: '#/components/schemas/DetalleError'
+          properties:
+            codigo:
+              type: string
+              enum:
+              - CREDENCIALES_INVALIDAS
+              - SIN_AUTENTICACION
+              - TOKEN_VENCIDO
+      required:
+      - detalle
+    Error403:
+      type: object
+      additionalProperties: false
+      properties:
+        detalle:
+          allOf:
+          - $ref: '#/components/schemas/DetalleError'
+          properties:
+            codigo:
+              type: string
+              enum:
+              - SIN_PERMISO
+      required:
+      - detalle
+    Error404:
+      type: object
+      additionalProperties: false
+      properties:
+        detalle:
+          allOf:
+          - $ref: '#/components/schemas/DetalleError'
+          properties:
+            codigo:
+              type: string
+              enum:
+              - NO_ENCONTRADO
+      required:
+      - detalle
+    Error409:
+      type: object
+      additionalProperties: false
+      properties:
+        detalle:
+          allOf:
+          - $ref: '#/components/schemas/DetalleError'
+          properties:
+            codigo:
+              type: string
+              enum:
+              - CORREO_YA_REGISTRADO
+              - INSUMO_EN_USO
+              - INSUMO_DUPLICADO
+              - PERIODO_YA_REGISTRADO
+              - CONFLICTO_REVISION
+      required:
+      - detalle
+    Error422:
+      type: object
+      additionalProperties: false
+      properties:
+        detalle:
+          allOf:
+          - $ref: '#/components/schemas/DetalleError'
+          properties:
+            codigo:
+              type: string
+              enum:
+              - ERROR_VALIDACION
+              - CALCULO_BLOQUEADO
+      required:
+      - detalle
+    Error428:
+      type: object
+      additionalProperties: false
+      properties:
+        detalle:
+          allOf:
+          - $ref: '#/components/schemas/DetalleError'
+          properties:
+            codigo:
+              type: string
+              enum:
+              - REVISION_REQUERIDA
+      required:
+      - detalle
+    Error500:
+      type: object
+      additionalProperties: false
+      properties:
+        detalle:
+          allOf:
+          - $ref: '#/components/schemas/DetalleError'
+          properties:
+            codigo:
+              type: string
+              enum:
+              - ERROR_INTERNO
+      required:
+      - detalle
+    EstadoServicio:
+      type: object
+      additionalProperties: false
+      properties:
+        estado:
+          type: string
+          enum:
+          - ok
+          - no_disponible
+        version:
+          type: string
+      required:
+      - estado
+      - version
+    Usuario:
+      type: object
+      additionalProperties: false
+      properties:
+        identificador:
+          type: string
+          format: uuid
+        nombre_completo:
+          type: string
+        correo:
+          type: string
+          format: email
+        rol:
+          type: string
+          enum:
+          - PROPIETARIO
+          - COLABORADOR
+      required:
+      - identificador
+      - nombre_completo
+      - correo
+      - rol
+    Organizacion:
+      type: object
+      additionalProperties: false
+      properties:
+        identificador:
+          type: string
+          format: uuid
+        nombre_comercial:
+          type: string
+        codigo_moneda:
+          type: string
+          pattern: ^[A-Z]{3}$
+          default: MXN
+        multiplo_redondeo:
+          type: string
+          pattern: ^-?\d+(\.\d{1,10})?$
+          examples:
+          - '70.83'
+        espaciado_por_defecto:
+          oneOf:
+          - type: integer
+            minimum: 0
+            maximum: 15
+          - type: 'null'
+        revision:
+          type: integer
+          minimum: 0
+      required:
+      - identificador
+      - nombre_comercial
+      - codigo_moneda
+      - multiplo_redondeo
+      - revision
+    Sesion:
+      type: object
+      additionalProperties: false
+      properties:
+        token_acceso:
+          type: string
+        token_actualizacion:
+          type: string
+          description: Omitible si se transporta en cookie HttpOnly.
+        expira_en_segundos:
+          type: integer
+          const: 900
+        usuario:
+          $ref: '#/components/schemas/Usuario'
+        organizacion:
+          $ref: '#/components/schemas/Organizacion'
+        onboarding_completado:
+          type: boolean
+      required:
+      - token_acceso
+      - expira_en_segundos
+      - usuario
+      - organizacion
+      - onboarding_completado
+    RegistroEntrada:
+      type: object
+      additionalProperties: false
+      properties:
+        nombre_completo:
+          type: string
+          minLength: 1
+        correo:
+          type: string
+          format: email
+        contrasena:
+          type: string
+          minLength: 10
+          writeOnly: true
+        nombre_consultorio:
+          oneOf:
+          - type: string
+          - type: 'null'
+      required:
+      - nombre_completo
+      - correo
+      - contrasena
+    InicioSesionEntrada:
+      type: object
+      additionalProperties: false
+      properties:
+        correo:
+          type: string
+          format: email
+        contrasena:
+          type: string
+          writeOnly: true
+      required:
+      - correo
+      - contrasena
+    RenovacionEntrada:
+      type: object
+      additionalProperties: false
+      properties:
+        token_actualizacion:
+          type: string
+          writeOnly: true
+      description: Vacío cuando el refresh token viaja en cookie HttpOnly.
+    Perfil:
+      type: object
+      additionalProperties: false
+      properties:
+        identificador:
+          type: string
+          format: uuid
+        nombre_para_mostrar:
+          type: string
+        especialidades:
+          type: array
+          items:
+            type: string
+            format: uuid
+        revision:
+          type: integer
+          minimum: 0
+      required:
+      - identificador
+      - nombre_para_mostrar
+      - especialidades
+      - revision
+    PerfilActualizar:
+      type: object
+      additionalProperties: false
+      properties:
+        nombre_para_mostrar:
+          type: string
+        especialidades:
+          type: array
+          items:
+            type: string
+            format: uuid
+    OrganizacionActualizar:
+      type: object
+      additionalProperties: false
+      properties:
+        nombre_comercial:
+          type: string
+        codigo_moneda:
+          type: string
+          const: MXN
+        multiplo_redondeo:
+          type: string
+          pattern: ^\d+(\.\d{1,2})?$
+        espaciado_por_defecto:
+          oneOf:
+          - type: integer
+            minimum: 0
+            maximum: 15
+          - type: 'null'
+    Especialidad:
+      type: object
+      additionalProperties: false
+      properties:
+        identificador:
+          type: string
+          format: uuid
+        clave:
+          type: string
+        nombre:
+          type: string
+      required:
+      - identificador
+      - clave
+      - nombre
+    ListaEspecialidades:
+      type: object
+      additionalProperties: false
+      properties:
+        elementos:
+          type: array
+          items:
+            $ref: '#/components/schemas/Especialidad'
+      required:
+      - elementos
+    Onboarding:
+      type: object
+      additionalProperties: false
+      properties:
+        ruta:
+          oneOf:
+          - type: string
+            enum:
+            - ASISTENTE_GUIADO
+            - CAPTURA_DIRECTA_DATOS
+          - type: 'null'
+        situacion:
+          oneOf:
+          - type: string
+            enum:
+            - YA_ATIENDE_EN_CONSULTA_PRIVADA
+            - ESTA_POR_INICIAR
+          - type: 'null'
+        ultimo_paso:
+          oneOf:
+          - type: string
+          - type: 'null'
+        seleccion_parcial:
+          type: object
+          additionalProperties: true
+        completado:
+          type: boolean
+        revision:
+          type: integer
+          minimum: 0
+      required:
+      - seleccion_parcial
+      - completado
+      - revision
+    OnboardingActualizar:
+      type: object
+      additionalProperties: false
+      properties:
+        ruta:
+          type: string
+          enum:
+          - ASISTENTE_GUIADO
+          - CAPTURA_DIRECTA_DATOS
+        situacion:
+          type: string
+          enum:
+          - YA_ATIENDE_EN_CONSULTA_PRIVADA
+          - ESTA_POR_INICIAR
+        ultimo_paso:
+          type: string
+        seleccion_parcial:
+          type: object
+          additionalProperties: true
+        completado:
+          type: boolean
+    PerfilCapacidad:
+      type: object
+      additionalProperties: false
+      properties:
+        identificador:
+          type: string
+          format: uuid
+        dias_por_semana:
+          type: integer
+          minimum: 1
+          maximum: 7
+        horas_por_dia:
+          type: number
+          exclusiveMinimum: 0
+          maximum: 24
+        porcentaje_ocupacion:
+          type: number
+          minimum: 0
+          maximum: 100
+        ocupacion_confirmada:
+          type: boolean
+        fecha_inicio_vigencia:
+          type: string
+          format: date
+        revision:
+          type: integer
+          minimum: 0
+      required:
+      - identificador
+      - dias_por_semana
+      - horas_por_dia
+      - porcentaje_ocupacion
+      - ocupacion_confirmada
+      - fecha_inicio_vigencia
+      - revision
+    PerfilCapacidadEntrada:
+      type: object
+      additionalProperties: false
+      properties:
+        dias_por_semana:
+          type: integer
+          minimum: 1
+          maximum: 7
+        horas_por_dia:
+          type: number
+          exclusiveMinimum: 0
+          maximum: 24
+        porcentaje_ocupacion:
+          type: number
+          minimum: 0
+          maximum: 100
+          default: 70
+        ocupacion_confirmada:
+          type: boolean
+      required:
+      - dias_por_semana
+      - horas_por_dia
+      - porcentaje_ocupacion
+      - ocupacion_confirmada
+    PeriodicidadPago:
+      type: object
+      additionalProperties: false
+      properties:
+        codigo:
+          type: string
+          enum:
+          - SEMANAL
+          - QUINCENAL
+          - MENSUAL
+          - BIMESTRAL
+          - TRIMESTRAL
+          - SEMESTRAL
+          - ANUAL
+        nombre:
+          type: string
+        factor_mensual:
+          type: string
+      required:
+      - codigo
+      - nombre
+      - factor_mensual
+    ListaPeriodicidades:
+      type: object
+      additionalProperties: false
+      properties:
+        elementos:
+          type: array
+          items:
+            $ref: '#/components/schemas/PeriodicidadPago'
+      required:
+      - elementos
+    GastoEntrada:
+      type: object
+      additionalProperties: false
+      properties:
+        nombre:
+          type: string
+        categoria:
+          type: string
+          enum:
+          - FIJO
+          - VARIABLE
+        importe_pagado_por_periodo:
+          type: string
+          pattern: ^-?\d+(\.\d{1,10})?$
+          examples:
+          - '70.83'
+        codigo_periodicidad:
+          type: string
+        fecha_inicio_vigencia:
+          type: string
+          format: date
+        activo:
+          type: boolean
+          default: true
+      required:
+      - nombre
+      - categoria
+      - importe_pagado_por_periodo
+      - codigo_periodicidad
+      - fecha_inicio_vigencia
+    Gasto:
+      type: object
+      additionalProperties: false
+      properties:
+        identificador:
+          type: string
+          format: uuid
+        nombre:
+          type: string
+        categoria:
+          type: string
+          enum:
+          - FIJO
+          - VARIABLE
+        importe_pagado_por_periodo:
+          type: string
+          pattern: ^-?\d+(\.\d{1,10})?$
+          examples:
+          - '70.83'
+        codigo_periodicidad:
+          type: string
+        fecha_inicio_vigencia:
+          type: string
+          format: date
+        activo:
+          type: boolean
+          default: true
+        equivalente_mensual:
+          type: string
+          pattern: ^-?\d+(\.\d{1,10})?$
+          examples:
+          - '70.83'
+        revision:
+          type: integer
+          minimum: 0
+      required:
+      - identificador
+      - nombre
+      - categoria
+      - importe_pagado_por_periodo
+      - codigo_periodicidad
+      - fecha_inicio_vigencia
+      - activo
+      - equivalente_mensual
+      - revision
+    GastoActualizar:
+      type: object
+      additionalProperties: false
+      properties:
+        nombre:
+          type: string
+        categoria:
+          type: string
+          enum:
+          - FIJO
+          - VARIABLE
+        importe_pagado_por_periodo:
+          type: string
+          pattern: ^-?\d+(\.\d{1,10})?$
+          examples:
+          - '70.83'
+        codigo_periodicidad:
+          type: string
+        fecha_inicio_vigencia:
+          type: string
+          format: date
+        activo:
+          type: boolean
+          default: true
+    EquipoEntrada:
+      type: object
+      additionalProperties: false
+      properties:
+        nombre:
+          type: string
+        precio_adquisicion:
+          type: string
+          pattern: ^-?\d+(\.\d{1,10})?$
+          examples:
+          - '70.83'
+        valor_residual:
+          type: string
+          pattern: ^-?\d+(\.\d{1,10})?$
+          examples:
+          - '70.83'
+        vida_util_anios:
+          type: integer
+          minimum: 1
+        fecha_alta_en_servicio:
+          oneOf:
+          - type: string
+            format: date
+          - type: 'null'
+        estado:
+          type: string
+          enum:
+          - ACTIVO
+          - ARCHIVADO
+          - BAJA
+      required:
+      - nombre
+      - precio_adquisicion
+      - valor_residual
+      - vida_util_anios
+      - estado
+    Equipo:
+      type: object
+      additionalProperties: false
+      properties:
+        identificador:
+          type: string
+          format: uuid
+        nombre:
+          type: string
+        precio_adquisicion:
+          type: string
+          pattern: ^-?\d+(\.\d{1,10})?$
+          examples:
+          - '70.83'
+        valor_residual:
+          type: string
+          pattern: ^-?\d+(\.\d{1,10})?$
+          examples:
+          - '70.83'
+        vida_util_anios:
+          type: integer
+          minimum: 1
+        fecha_alta_en_servicio:
+          oneOf:
+          - type: string
+            format: date
+          - type: 'null'
+        estado:
+          type: string
+          enum:
+          - ACTIVO
+          - ARCHIVADO
+          - BAJA
+        depreciacion_mensual:
+          type: string
+          pattern: ^-?\d+(\.\d{1,10})?$
+          examples:
+          - '70.83'
+        revision:
+          type: integer
+          minimum: 0
+      required:
+      - identificador
+      - nombre
+      - precio_adquisicion
+      - valor_residual
+      - vida_util_anios
+      - estado
+      - depreciacion_mensual
+      - revision
+    EquipoActualizar:
+      type: object
+      additionalProperties: false
+      properties:
+        nombre:
+          type: string
+        precio_adquisicion:
+          type: string
+          pattern: ^-?\d+(\.\d{1,10})?$
+          examples:
+          - '70.83'
+        valor_residual:
+          type: string
+          pattern: ^-?\d+(\.\d{1,10})?$
+          examples:
+          - '70.83'
+        vida_util_anios:
+          type: integer
+          minimum: 1
+        fecha_alta_en_servicio:
+          oneOf:
+          - type: string
+            format: date
+          - type: 'null'
+        estado:
+          type: string
+          enum:
+          - ACTIVO
+          - ARCHIVADO
+          - BAJA
+    PaginacionGastos:
+      type: object
+      additionalProperties: false
+      properties:
+        elementos:
+          type: array
+          items:
+            $ref: '#/components/schemas/Gasto'
+        siguiente_cursor:
+          oneOf:
+          - type: string
+          - type: 'null'
+      required:
+      - elementos
+      - siguiente_cursor
+    PaginacionEquipos:
+      type: object
+      additionalProperties: false
+      properties:
+        elementos:
+          type: array
+          items:
+            $ref: '#/components/schemas/Equipo'
+        siguiente_cursor:
+          oneOf:
+          - type: string
+          - type: 'null'
+      required:
+      - elementos
+      - siguiente_cursor
+    ResumenCostosIndirectos:
+      type: object
+      additionalProperties: false
+      properties:
+        gastos_fijos:
+          type: string
+          pattern: ^-?\d+(\.\d{1,10})?$
+          examples:
+          - '70.83'
+        gastos_variables:
+          type: string
+          pattern: ^-?\d+(\.\d{1,10})?$
+          examples:
+          - '70.83'
+        depreciacion:
+          type: string
+          pattern: ^-?\d+(\.\d{1,10})?$
+          examples:
+          - '70.83'
+        total_mensual:
+          type: string
+          pattern: ^-?\d+(\.\d{1,10})?$
+          examples:
+          - '70.83'
+        minutos_disponibles:
+          type: integer
+        minutos_efectivos:
+          type: integer
+        costo_por_minuto:
+          type: string
+          pattern: ^-?\d+(\.\d{1,10})?$
+          examples:
+          - '70.83'
+        aportes:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        bloqueos:
+          type: array
+          items:
+            $ref: '#/components/schemas/BloqueoCalculo'
+      required:
+      - gastos_fijos
+      - gastos_variables
+      - depreciacion
+      - total_mensual
+      - minutos_disponibles
+      - minutos_efectivos
+      - bloqueos
+    UnidadMedida:
+      type: object
+      additionalProperties: false
+      properties:
+        codigo:
+          type: string
+        nombre:
+          type: string
+      required:
+      - codigo
+      - nombre
+    ListaUnidades:
+      type: object
+      additionalProperties: false
+      properties:
+        elementos:
+          type: array
+          items:
+            $ref: '#/components/schemas/UnidadMedida'
+      required:
+      - elementos
+    InsumoEntrada:
+      type: object
+      additionalProperties: false
+      properties:
+        nombre:
+          type: string
+        presentacion:
+          oneOf:
+          - type: string
+          - type: 'null'
+        codigo_unidad:
+          type: string
+        cantidad_contenida:
+          type: number
+          exclusiveMinimum: 0
+        precio_presentacion:
+          type: string
+          pattern: ^-?\d+(\.\d{1,10})?$
+          examples:
+          - '70.83'
+      required:
+      - nombre
+      - codigo_unidad
+      - cantidad_contenida
+      - precio_presentacion
+    Insumo:
+      type: object
+      additionalProperties: false
+      properties:
+        identificador:
+          type: string
+          format: uuid
+        nombre:
+          type: string
+        presentacion:
+          oneOf:
+          - type: string
+          - type: 'null'
+        codigo_unidad:
+          type: string
+        cantidad_contenida:
+          type: number
+          exclusiveMinimum: 0
+        precio_presentacion:
+          type: string
+          pattern: ^-?\d+(\.\d{1,10})?$
+          examples:
+          - '70.83'
+        costo_unitario:
+          type: string
+          pattern: ^-?\d+(\.\d{1,10})?$
+          examples:
+          - '70.83'
+        archivado:
+          type: boolean
+        usado_en_recetas:
+          type: integer
+          minimum: 0
+        revision:
+          type: integer
+          minimum: 0
+      required:
+      - identificador
+      - nombre
+      - codigo_unidad
+      - cantidad_contenida
+      - precio_presentacion
+      - costo_unitario
+      - archivado
+      - usado_en_recetas
+      - revision
+    InsumoActualizar:
+      type: object
+      additionalProperties: false
+      properties:
+        nombre:
+          type: string
+        presentacion:
+          oneOf:
+          - type: string
+          - type: 'null'
+        codigo_unidad:
+          type: string
+        cantidad_contenida:
+          type: number
+          exclusiveMinimum: 0
+        precio_presentacion:
+          type: string
+          pattern: ^-?\d+(\.\d{1,10})?$
+          examples:
+          - '70.83'
+    PaginacionInsumos:
+      type: object
+      additionalProperties: false
+      properties:
+        elementos:
+          type: array
+          items:
+            $ref: '#/components/schemas/Insumo'
+        siguiente_cursor:
+          oneOf:
+          - type: string
+          - type: 'null'
+      required:
+      - elementos
+      - siguiente_cursor
+    PrecioInsumo:
+      type: object
+      additionalProperties: false
+      properties:
+        identificador:
+          type: string
+          format: uuid
+        precio_presentacion:
+          type: string
+          pattern: ^-?\d+(\.\d{1,10})?$
+          examples:
+          - '70.83'
+        cantidad_contenida:
+          type: string
+          pattern: ^-?\d+(\.\d{1,10})?$
+          examples:
+          - '70.83'
+        costo_unitario:
+          type: string
+          pattern: ^-?\d+(\.\d{1,10})?$
+          examples:
+          - '70.83'
+        fecha_inicio_vigencia:
+          type: string
+          format: date
+      required:
+      - identificador
+      - precio_presentacion
+      - cantidad_contenida
+      - costo_unitario
+      - fecha_inicio_vigencia
+    ListaPreciosInsumo:
+      type: object
+      additionalProperties: false
+      properties:
+        elementos:
+          type: array
+          items:
+            $ref: '#/components/schemas/PrecioInsumo'
+      required:
+      - elementos
+    PeriodoMensualEntrada:
+      type: object
+      additionalProperties: false
+      properties:
+        mes:
+          type: string
+          format: date
+        consumo_materiales:
+          type: string
+          pattern: ^-?\d+(\.\d{1,10})?$
+          examples:
+          - '70.83'
+        tratamientos_atendidos:
+          type: integer
+          minimum: 0
+        procedencia:
+          type: string
+          enum:
+          - ESTE_MES
+          - PERIODO_ANTERIOR
+        notas:
+          oneOf:
+          - type: string
+          - type: 'null'
+      required:
+      - mes
+      - consumo_materiales
+      - tratamientos_atendidos
+      - procedencia
+    PeriodoMensual:
+      type: object
+      additionalProperties: false
+      properties:
+        identificador:
+          type: string
+          format: uuid
+        mes:
+          type: string
+          format: date
+        consumo_materiales:
+          type: string
+          pattern: ^-?\d+(\.\d{1,10})?$
+          examples:
+          - '70.83'
+        tratamientos_atendidos:
+          type: integer
+          minimum: 0
+        procedencia:
+          type: string
+          enum:
+          - ESTE_MES
+          - PERIODO_ANTERIOR
+        notas:
+          oneOf:
+          - type: string
+          - type: 'null'
+        materiales_por_tratamiento:
+          oneOf:
+          - type: string
+            pattern: ^-?\d+(\.\d{1,10})?$
+            examples:
+            - '70.83'
+          - type: 'null'
+        estado:
+          type: string
+          enum:
+          - VIGENTE
+          - ANULADO
+        numero_version:
+          type: integer
+        revision:
+          type: integer
+          minimum: 0
+      required:
+      - identificador
+      - mes
+      - estado
+      - numero_version
+      - revision
+    CorreccionPeriodoEntrada:
+      type: object
+      additionalProperties: false
+      properties:
+        consumo_materiales:
+          type: string
+          pattern: ^-?\d+(\.\d{1,10})?$
+          examples:
+          - '70.83'
+        tratamientos_atendidos:
+          type: integer
+          minimum: 0
+        procedencia:
+          type: string
+          enum:
+          - ESTE_MES
+          - PERIODO_ANTERIOR
+        notas:
+          oneOf:
+          - type: string
+          - type: 'null'
+      required:
+      - consumo_materiales
+      - tratamientos_atendidos
+      - procedencia
+    PaginacionPeriodos:
+      type: object
+      additionalProperties: false
+      properties:
+        elementos:
+          type: array
+          items:
+            $ref: '#/components/schemas/PeriodoMensual'
+        siguiente_cursor:
+          oneOf:
+          - type: string
+          - type: 'null'
+      required:
+      - elementos
+      - siguiente_cursor
+    PromedioMateriales:
+      type: object
+      additionalProperties: false
+      properties:
+        importe_por_tratamiento:
+          type: string
+          pattern: ^-?\d+(\.\d{1,10})?$
+          examples:
+          - '70.83'
+        madurez:
+          type: string
+          enum:
+          - SIN_BASE
+          - INICIAL
+          - EN_FORMACION
+          - MADURA
+        periodos_incluidos:
+          type: array
+          items:
+            type: string
+            format: uuid
+        periodos_excluidos:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+      required:
+      - importe_por_tratamiento
+      - madurez
+      - periodos_incluidos
+      - periodos_excluidos
+    PlantillaTratamiento:
+      type: object
+      additionalProperties: false
+      properties:
+        clave:
+          type: string
+        nombre:
+          type: string
+        especialidad:
+          type: string
+        duracion_clinica:
+          type: integer
+        materiales_sugeridos:
+          type: array
+          items:
+            type: string
+        agregado:
+          type: boolean
+      required:
+      - clave
+      - nombre
+      - especialidad
+      - duracion_clinica
+      - materiales_sugeridos
+      - agregado
+    ListaPlantillas:
+      type: object
+      additionalProperties: false
+      properties:
+        elementos:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlantillaTratamiento'
+      required:
+      - elementos
+    ImportarPlantillasEntrada:
+      type: object
+      additionalProperties: false
+      properties:
+        claves:
+          type: array
+          minItems: 1
+          items:
+            type: string
+        version_catalogo:
+          type: string
+          const: 2026-09-16.1
+      required:
+      - claves
+      - version_catalogo
+    TratamientoEntrada:
+      type: object
+      additionalProperties: false
+      properties:
+        nombre:
+          type: string
+        especialidad:
+          type: string
+        duracion_clinica:
+          type: integer
+          minimum: 1
+          maximum: 600
+      required:
+      - nombre
+      - especialidad
+      - duracion_clinica
+    LineaReceta:
+      type: object
+      additionalProperties: false
+      properties:
+        identificador_insumo:
+          type: string
+          format: uuid
+        cantidad:
+          type: number
+          exclusiveMinimum: 0
+        merma_porcentaje:
+          type: number
+          minimum: 0
+          maximum: 100
+      required:
+      - identificador_insumo
+      - cantidad
+    ConfiguracionTratamientoEntrada:
+      type: object
+      additionalProperties: false
+      properties:
+        nombre:
+          type: string
+        especialidad:
+          type: string
+        duracion_clinica:
+          type: integer
+          minimum: 1
+          maximum: 600
+        espaciado:
+          oneOf:
+          - type: integer
+            minimum: 0
+            maximum: 15
+          - type: 'null'
+        metodo_materiales:
+          oneOf:
+          - type: string
+            enum:
+            - PROMEDIO_MENSUAL
+            - IMPORTE_RAPIDO
+            - RECETA_INSUMOS
+          - type: 'null'
+        importe_materiales:
+          oneOf:
+          - type: string
+            pattern: ^-?\d+(\.\d{1,10})?$
+            examples:
+            - '70.83'
+          - type: 'null'
+        receta:
+          type: array
+          items:
+            $ref: '#/components/schemas/LineaReceta'
+        ajuste_porcentaje:
+          type: number
+          minimum: 1
+          maximum: 500
+      required:
+      - nombre
+      - especialidad
+      - duracion_clinica
+      - receta
+      - ajuste_porcentaje
+    Tratamiento:
+      type: object
+      additionalProperties: false
+      properties:
+        identificador:
+          type: string
+          format: uuid
+        nombre:
+          type: string
+        especialidad:
+          type: string
+        duracion_clinica:
+          type: integer
+          minimum: 1
+          maximum: 600
+        espaciado:
+          oneOf:
+          - type: integer
+            minimum: 0
+            maximum: 15
+          - type: 'null'
+        metodo_materiales:
+          oneOf:
+          - type: string
+            enum:
+            - PROMEDIO_MENSUAL
+            - IMPORTE_RAPIDO
+            - RECETA_INSUMOS
+          - type: 'null'
+        importe_materiales:
+          oneOf:
+          - type: string
+            pattern: ^-?\d+(\.\d{1,10})?$
+            examples:
+            - '70.83'
+          - type: 'null'
+        receta:
+          type: array
+          items:
+            $ref: '#/components/schemas/LineaReceta'
+        ajuste_porcentaje:
+          type: number
+          minimum: 1
+          maximum: 500
+        estado:
+          type: string
+          enum:
+          - BORRADOR
+          - CALCULADO
+          - CAMBIOS_POR_REVISAR
+          - ARCHIVADO
+        revision:
+          type: integer
+          minimum: 0
+        ultimo_resultado:
+          oneOf:
+          - $ref: '#/components/schemas/ResultadoCosto'
+          - type: 'null'
+      required:
+      - identificador
+      - nombre
+      - especialidad
+      - duracion_clinica
+      - receta
+      - ajuste_porcentaje
+      - estado
+      - revision
+    PaginacionTratamientos:
+      type: object
+      additionalProperties: false
+      properties:
+        elementos:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tratamiento'
+        siguiente_cursor:
+          oneOf:
+          - type: string
+          - type: 'null'
+      required:
+      - elementos
+      - siguiente_cursor
+    ListaTratamientos:
+      type: object
+      additionalProperties: false
+      properties:
+        elementos:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tratamiento'
+      required:
+      - elementos
+    MaterialSugerido:
+      type: object
+      additionalProperties: false
+      properties:
+        nombre_generico:
+          type: string
+        numero_tratamientos:
+          type: integer
+        identificadores_tratamientos:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+      - nombre_generico
+      - numero_tratamientos
+      - identificadores_tratamientos
+    ListaMaterialesSugeridos:
+      type: object
+      additionalProperties: false
+      properties:
+        elementos:
+          type: array
+          items:
+            $ref: '#/components/schemas/MaterialSugerido'
+      required:
+      - elementos
+    VincularMaterialEntrada:
+      type: object
+      additionalProperties: false
+      properties:
+        nombre_generico:
+          type: string
+        identificador_insumo:
+          type: string
+          format: uuid
+        cantidades:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              identificador_tratamiento:
+                type: string
+                format: uuid
+              cantidad:
+                oneOf:
+                - type: number
+                  exclusiveMinimum: 0
+                - type: 'null'
+            required:
+            - identificador_tratamiento
+      required:
+      - nombre_generico
+      - identificador_insumo
+      - cantidades
+    ResultadoVinculacion:
+      type: object
+      additionalProperties: false
+      properties:
+        tratamientos_actualizados:
+          type: integer
+          minimum: 0
+      required:
+      - tratamientos_actualizados
+    VistaPreviaEntrada:
+      type: object
+      additionalProperties: false
+      properties:
+        configuracion:
+          $ref: '#/components/schemas/ConfiguracionTratamientoEntrada'
+      required:
+      - configuracion
+    ResultadoCosto:
+      type: object
+      additionalProperties: false
+      properties:
+        costo_tiempo:
+          type: string
+          pattern: ^-?\d+(\.\d{1,10})?$
+          examples:
+          - '70.83'
+        materiales_generales:
+          type: string
+          pattern: ^-?\d+(\.\d{1,10})?$
+          examples:
+          - '70.83'
+        materiales_especiales:
+          type: string
+          pattern: ^-?\d+(\.\d{1,10})?$
+          examples:
+          - '70.83'
+        costo_total:
+          type: string
+          pattern: ^-?\d+(\.\d{1,10})?$
+          examples:
+          - '70.83'
+        ajuste_porcentaje:
+          type: number
+        importe_ajustado:
+          type: string
+          pattern: ^-?\d+(\.\d{1,10})?$
+          examples:
+          - '70.83'
+        precio_sugerido:
+          type: string
+          pattern: ^-?\d+(\.\d{1,10})?$
+          examples:
+          - '70.83'
+        margen_porcentaje:
+          type: number
+        semaforo:
+          type: string
+          enum:
+          - BAJO
+          - INTERMEDIO
+          - ALTO
+      required:
+      - costo_tiempo
+      - materiales_generales
+      - materiales_especiales
+      - costo_total
+      - ajuste_porcentaje
+      - importe_ajustado
+      - precio_sugerido
+      - margen_porcentaje
+      - semaforo
+    VistaPrevia:
+      type: object
+      additionalProperties: false
+      properties:
+        estado:
+          type: string
+          enum:
+          - completo
+          - borrador
+        resultado:
+          oneOf:
+          - $ref: '#/components/schemas/ResultadoCosto'
+          - type: 'null'
+        bloqueos:
+          type: array
+          items:
+            $ref: '#/components/schemas/BloqueoCalculo'
+      required:
+      - estado
+      - bloqueos
+    CalculoEntrada:
+      type: object
+      additionalProperties: false
+      properties:
+        revision_tratamiento:
+          type: integer
+          minimum: 0
+      required:
+      - revision_tratamiento
+    HojaCostosResumen:
+      type: object
+      additionalProperties: false
+      properties:
+        identificador:
+          type: string
+          format: uuid
+        fecha_creacion:
+          type: string
+          format: date-time
+        resultado:
+          $ref: '#/components/schemas/ResultadoCosto'
+        metodo_materiales:
+          type: string
+        vigente:
+          type: boolean
+      required:
+      - identificador
+      - fecha_creacion
+      - resultado
+      - metodo_materiales
+      - vigente
+    HojaCostos:
+      type: object
+      additionalProperties: false
+      properties:
+        identificador:
+          type: string
+          format: uuid
+        identificador_tratamiento:
+          type: string
+          format: uuid
+        fecha_creacion:
+          type: string
+          format: date-time
+        datos_aplicados:
+          type: object
+          additionalProperties: true
+        aportes:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        minutos_disponibles:
+          type: integer
+        minutos_efectivos:
+          type: integer
+        costo_por_minuto:
+          type: string
+          pattern: ^-?\d+(\.\d{1,10})?$
+          examples:
+          - '70.83'
+        minutos_imputados:
+          type: integer
+        lineas_insumo:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        periodos:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        resultado:
+          $ref: '#/components/schemas/ResultadoCosto'
+        version_formula:
+          type: string
+        sustituye_a:
+          oneOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+      required:
+      - identificador
+      - identificador_tratamiento
+      - fecha_creacion
+      - datos_aplicados
+      - aportes
+      - minutos_disponibles
+      - minutos_efectivos
+      - costo_por_minuto
+      - minutos_imputados
+      - lineas_insumo
+      - periodos
+      - resultado
+      - version_formula
+    PaginacionHojas:
+      type: object
+      additionalProperties: false
+      properties:
+        elementos:
+          type: array
+          items:
+            $ref: '#/components/schemas/HojaCostosResumen'
+        siguiente_cursor:
+          oneOf:
+          - type: string
+          - type: 'null'
+      required:
+      - elementos
+      - siguiente_cursor
+    InicioResumen:
+      type: object
+      additionalProperties: false
+      properties:
+        siguiente_paso:
+          type: object
+          additionalProperties: true
+        kpi:
+          type: object
+          additionalProperties: true
+        ultimo_resultado:
+          oneOf:
+          - $ref: '#/components/schemas/HojaCostosResumen'
+          - type: 'null'
+        recientes:
+          type: array
+          maxItems: 5
+          items:
+            $ref: '#/components/schemas/HojaCostosResumen'
+      required:
+      - siguiente_paso
+      - kpi
+      - recientes
+security:
+- BearerJWT: []
+x-medalyze-estado: propuesto
+x-medalyze-decisiones-pendientes:
+- Transporte definitivo del refresh token y protección CSRF.
+- Retención y semántica exacta de Idempotency-Key.

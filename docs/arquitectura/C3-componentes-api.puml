@@ -1,0 +1,39 @@
+@startuml C3-componentes-api
+!include <C4/C4_Component>
+
+title Medalyze - C4 Nivel 3 - API objetivo
+
+Container(spa, "Aplicación web", "React + TypeScript", "Consume únicamente el contrato OpenAPI v1.0")
+ContainerDb(db, "Base de datos", "PostgreSQL 16", "Persistencia, historial inmutable y RLS")
+
+Container_Boundary(api, "API Medalyze - FastAPI - /api/v1") {
+  Component(http, "API", "FastAPI + Pydantic", "Routers, autenticación HTTP, validación y respuestas")
+  Component(app, "Aplicación", "Casos de uso y puertos", "Orquesta transacciones y módulos")
+  Component(domain, "Dominio", "Python puro", "Reglas de costeo, dinero, bloqueos y resultados")
+  Component(infra, "Infraestructura", "SQLAlchemy, PostgreSQL, Argon2 y JWT", "Implementa puertos y detalles externos")
+  Component(modules, "Módulos funcionales", "Monolito modular", "autenticacion, cuenta, onboarding, capacidad, gastos, equipos, insumos, mensuales, plantillas, tratamientos, costeo e inicio")
+}
+
+Rel(spa, http, "Solicitudes según OpenAPI", "HTTPS + JSON + Bearer JWT")
+Rel(http, app, "Invoca casos de uso")
+Rel(http, modules, "Enruta por recurso")
+Rel(app, domain, "Aplica reglas")
+Rel(infra, app, "Implementa puertos")
+Rel(infra, domain, "Convierte modelos de persistencia")
+Rel(infra, db, "Transacción; SET LOCAL antes de consultas protegidas", "SQL")
+
+note right of app
+  Una transacción por escritura.
+  Emitir hoja = calcular + guardar atómicamente.
+  409: revisión distinta.
+  428: revisión requerida.
+end note
+
+note bottom of infra
+  La organización se obtiene de la sesión.
+  RLS refuerza identificador_organizacion.
+  Recurso ajeno: 404. Rol sin permiso: 403.
+end note
+
+@enduml
+

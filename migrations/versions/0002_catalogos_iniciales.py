@@ -24,7 +24,7 @@ def upgrade() -> None:
     if context.is_offline_mode():
         op.execute(sql)
     else:
-        op.get_bind().exec_driver_sql(sql)
+        op.get_bind().exec_driver_sql(sql.replace("%", "%%"))
 
 
 def downgrade() -> None:

@@ -42,6 +42,10 @@ Fuente: `Medalyze_Diagrama_Clases_Calculo_Costos.puml`. La tabla asigna cada tip
 | `RepositorioConfiguracion` | `application/capacidad/puertos.py` | capacidad, costeo |
 | `RepositorioTratamientos` | `application/tratamientos/puertos.py` | tratamientos, costeo |
 | `RepositorioHojasCostos` | `application/costeo/puertos.py` | costeo |
+| `RepositorioInsumos` | `application/insumos/puertos.py` | insumos, tratamientos, costeo |
+| `RepositorioPeriodosMensuales` | `application/mensuales/puertos.py` | mensuales, costeo |
+
+Las siete interfaces se consolidan físicamente en `app/application/puertos.py` para el MVP. Sus adaptadores síncronos SQLAlchemy para el flujo de costeo viven en `app/infrastructure/repositorios_costeo.py`.
 
 ## Módulos fuera del diagrama del motor
 
@@ -60,4 +64,3 @@ Fuente: `Medalyze_Diagrama_Clases_Calculo_Costos.puml`. La tabla asigna cada tip
 - Los adaptadores SQLAlchemy implementan puertos definidos por `application`.
 - `SET LOCAL app.organizacion_id` se ejecuta en la misma conexión y transacción antes de consultar datos protegidos.
 - El cotejo final debe comparar automáticamente todos los nombres declarados en el `.puml` contra esta tabla antes de aprobar el PR.
-

@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: medalyze
+          POSTGRES_USER: medalyze
+          POSTGRES_PASSWORD: medalyze
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U medalyze -d medalyze"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      DATABASE_URL: postgresql+psycopg://medalyze_app:medalyze_app@localhost:5432/medalyze
+      ALEMBIC_DATABASE_URL: postgresql+psycopg://medalyze:medalyze@localhost:5432/medalyze
+      JWT_SECRET: secreto-ci-medalyze-con-mas-de-32-caracteres
+      CORS_ORIGINS: http://localhost:5173
+      MEDALYZE_TEST_POSTGRES: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: pip install -e '.[dev]'
+      - name: Construir base de datos con Alembic
+        run: alembic upgrade head
+      - run: ruff check .
+      - run: mypy app scripts
+      - run: python scripts/verificar_openapi.py
+      - name: Verificar generación de tipos TypeScript
+        run: npx --yes openapi-typescript@7.10.1 docs/api/openapi.yaml -o /tmp/medalyze-api.d.ts
+      - name: Compilar C3 de arquitectura
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes plantuml
+          plantuml -checkonly docs/arquitectura/C3-componentes-api.puml
+          plantuml -tpng docs/arquitectura/C3-componentes-api.puml -o /tmp
+      - run: pytest --cov=app/domain --cov-report=term-missing --cov-fail-under=90

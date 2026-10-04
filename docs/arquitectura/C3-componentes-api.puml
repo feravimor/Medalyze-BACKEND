@@ -27,6 +27,12 @@ note right of app
   Emitir hoja = calcular + guardar atómicamente.
   409: revisión distinta.
   428: revisión requerida.
+
+  Puertos CAL-06:
+  RepositorioGastos, RepositorioEquipos,
+  RepositorioConfiguracion, RepositorioTratamientos,
+  RepositorioHojasCostos, RepositorioInsumos y
+  RepositorioPeriodosMensuales.
 end note
 
 note bottom of infra
@@ -36,4 +42,3 @@ note bottom of infra
 end note
 
 @enduml
-

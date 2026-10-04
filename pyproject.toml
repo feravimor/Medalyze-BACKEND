@@ -23,6 +23,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "httpx>=0.27,<1",
+  "hypothesis>=6,<7",
   "mypy>=1.13,<2",
   "pytest>=8.3,<9",
   "pytest-cov>=5,<7",
@@ -57,3 +58,4 @@ plugins = ["pydantic.mypy"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q --strict-markers"
+markers = ["postgres: requiere PostgreSQL 16 con las migraciones aplicadas"]

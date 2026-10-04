@@ -311,7 +311,6 @@ No se versionan secretos ni archivos `.env` reales.
 - Formato final de `margen_estimado_porcentaje` en base de datos: `43.5400` o `0.4354` — ningún documento lo aclara con un ×100 explícito.
 - Precisión del factor de periodicidad: calcularlo en código (recomendado) vs. leerlo de una columna `numeric(12,8)` que no representa exacto 1/12 ni 52/12.
 - Qué operaciones de escritura requieren rol `PROPIETARIO` exclusivamente — no especificado en ningún diagrama revisado todavía.
-- Completar y verificar las siete interfaces de repositorio exigidas por CAL-06.
 - Aprobar nombres y ubicación definitiva de archivos internos dentro de `api`, `application` e `infrastructure`.
 
 ## Referencias
@@ -331,12 +330,13 @@ No se versionan secretos ni archivos `.env` reales.
 
 - [x] ADR-001 elaborado en estado `Propuesto`.
 - [x] C3 oficial actualizado (reemplaza los 7 recursos `/shared-*` legacy por los 12 módulos nuevos).
-- [ ] C3 compilado y revisado — pendiente: se detectó un conflicto entre `_estilo.iuml` y la librería C4 que impide compilar cualquier diagrama C1–C3 del proyecto tal como están hoy
+- [x] C3 compilado de forma independiente; evidencia `docs/arquitectura/C3-componentes-api.png`.
 - [x] Tabla clase y enumeración → módulo completa (46 elementos, incluidas las 7 enumeraciones agregadas en la auditoría).
 - [x] Transacción atómica de emisión documentada.
 - [x] Aislamiento por organización documentado en aplicación y PostgreSQL.
 - [x] Integración conceptual con ADR-002 documentada.
 - [x] Revisión cruzada contra C3, diagrama de clases y modelo de datos.
+- [x] Siete interfaces de repositorio y adaptadores SQLAlchemy del flujo de costeo documentados.
 - [ ] Aprobación del responsable técnico.
 
 Este documento permanece en estado `Propuesto` hasta completar la evidencia, resolver las decisiones compartidas con ADR-002 y recibir aprobación técnica.

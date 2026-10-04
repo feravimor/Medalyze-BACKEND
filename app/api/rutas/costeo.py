@@ -11,6 +11,15 @@ from app.application.utilidades import limpiar_json
 from app.core.errores import ErrorAplicacion, conflicto_revision, no_encontrado
 from app.domain.costeo import EntradaCosteo, ResultadoCosteo, calcular_costeo
 from app.infrastructure.idempotencia import buscar_respuesta, completar, reservar
+from app.infrastructure.repositorios_costeo import (
+    RepositorioConfiguracionSQLAlchemy,
+    RepositorioEquiposSQLAlchemy,
+    RepositorioGastosSQLAlchemy,
+    RepositorioHojasCostosSQLAlchemy,
+    RepositorioInsumosSQLAlchemy,
+    RepositorioPeriodosMensualesSQLAlchemy,
+    RepositorioTratamientosSQLAlchemy,
+)
 
 router = APIRouter()
 
@@ -18,33 +27,12 @@ router = APIRouter()
 def _cargar_configuracion(
     sesion: Session, contexto: ContextoSolicitud, identificador: UUID
 ) -> tuple[dict, dict]:
-    tratamiento = (
-        (
-            sesion.execute(
-                text(
-                    "SELECT * FROM tratamiento WHERE identificador=:id AND identificador_organizacion=:o"
-                ),
-                {"id": identificador, "o": contexto.organizacion},
-            )
-        )
-        .mappings()
-        .first()
+    resultado = RepositorioTratamientosSQLAlchemy(sesion).obtener_con_configuracion(
+        contexto.organizacion, identificador
     )
-    if tratamiento is None:
-        raise no_encontrado()
-    config = (
-        (
-            sesion.execute(
-                text("SELECT * FROM version_configuracion_tratamiento WHERE identificador=:v"),
-                {"v": tratamiento["identificador_version_vigente"]},
-            )
-        )
-        .mappings()
-        .first()
-    )
-    if config is None:
+    if resultado is None:
         raise no_encontrado("El tratamiento no tiene configuración vigente.")
-    return dict(tratamiento), dict(config)
+    return resultado
 
 
 def _materiales_receta(sesion: Session, version: UUID) -> tuple[Decimal, list[dict]]:
@@ -70,20 +58,8 @@ def _materiales_receta(sesion: Session, version: UUID) -> tuple[Decimal, list[di
 def _promedio_materiales(
     sesion: Session, contexto: ContextoSolicitud
 ) -> tuple[Decimal | None, list[dict], str]:
-    filas = (
-        (
-            sesion.execute(
-                text("""
-        SELECT p.identificador,p.mes,v.consumo_materiales,v.tratamientos_atendidos
-        FROM periodo_mensual_consumo p JOIN version_periodo_mensual_consumo v ON v.identificador=p.identificador_version_vigente
-        WHERE p.identificador_organizacion=:o AND p.mes<=current_date AND v.tipo_movimiento<>'ANULACION' AND v.tratamientos_atendidos>0
-        ORDER BY p.mes DESC LIMIT 3
-    """),
-                {"o": contexto.organizacion},
-            )
-        )
-        .mappings()
-        .all()
+    filas = RepositorioPeriodosMensualesSQLAlchemy(sesion).periodos_elegibles(
+        contexto.organizacion
     )
     if not filas:
         return None, [], "SIN_BASE"
@@ -103,51 +79,15 @@ def _calcular(
     if sobreescritura:
         config.update(sobreescritura.model_dump())
         config["metodo"] = config.pop("metodo_materiales")
-    gastos = (
-        (
-            sesion.execute(
-                text(
-                    """SELECT coalesce(sum(CASE WHEN g.categoria='FIJO' THEN g.importe_pagado_por_periodo*p.factor_mensual ELSE 0 END),0) fijos,coalesce(sum(CASE WHEN g.categoria='VARIABLE' THEN g.importe_pagado_por_periodo*p.factor_mensual ELSE 0 END),0) variables FROM gasto_registrado g JOIN periodicidad_pago p ON p.codigo=g.codigo_periodicidad WHERE g.identificador_organizacion=:o AND g.activo AND g.fecha_inicio_vigencia<=current_date AND (g.fecha_fin_vigencia IS NULL OR g.fecha_fin_vigencia>=current_date)"""
-                ),
-                {"o": contexto.organizacion},
-            )
-        )
-        .mappings()
-        .one()
+    fijos, variables = RepositorioGastosSQLAlchemy(sesion).totales_mensuales(
+        contexto.organizacion
     )
-    depreciacion = Decimal(
-        sesion.scalar(
-            text(
-                "SELECT coalesce(sum(depreciacion_mensual),0) FROM equipo_o_instalacion_depreciable WHERE identificador_organizacion=:o AND estado='ACTIVO' AND (fecha_alta_en_servicio IS NULL OR fecha_alta_en_servicio<=current_date)"
-            ),
-            {"o": contexto.organizacion},
-        )
-        or 0
+    depreciacion = RepositorioEquiposSQLAlchemy(sesion).depreciacion_mensual(
+        contexto.organizacion
     )
-    capacidad = (
-        (
-            sesion.execute(
-                text(
-                    "SELECT dias_por_semana,horas_por_dia,porcentaje_ocupacion FROM perfil_capacidad_atencion WHERE identificador_organizacion=:o AND fecha_fin_vigencia IS NULL"
-                ),
-                {"o": contexto.organizacion},
-            )
-        )
-        .mappings()
-        .first()
-    )
-    organizacion = (
-        (
-            sesion.execute(
-                text(
-                    "SELECT multiplo_redondeo,espaciado_por_defecto FROM organizacion_consultorio WHERE identificador=:o"
-                ),
-                {"o": contexto.organizacion},
-            )
-        )
-        .mappings()
-        .one()
-    )
+    repositorio_configuracion = RepositorioConfiguracionSQLAlchemy(sesion)
+    capacidad = repositorio_configuracion.capacidad_vigente(contexto.organizacion)
+    organizacion = repositorio_configuracion.organizacion(contexto.organizacion)
     espaciado = config.get("espaciado")
     if espaciado is None:
         espaciado = (
@@ -166,11 +106,8 @@ def _calcular(
         if sobreescritura:
             materiales = Decimal(0)
             for linea in sobreescritura.receta:
-                precio = sesion.scalar(
-                    text(
-                        """SELECT p.costo_unitario FROM insumo_clinico i JOIN LATERAL (SELECT costo_unitario FROM precio_historico_insumo WHERE identificador_insumo=i.identificador ORDER BY fecha_inicio_vigencia DESC,fecha_hora_creacion DESC LIMIT 1) p ON true WHERE i.identificador=:i AND i.identificador_organizacion=:o AND i.fecha_hora_archivado IS NULL"""
-                    ),
-                    {"i": linea.identificador_insumo, "o": contexto.organizacion},
+                precio = RepositorioInsumosSQLAlchemy(sesion).precio_unitario_vigente(
+                    contexto.organizacion, linea.identificador_insumo
                 )
                 if precio is not None:
                     materiales += (
@@ -183,8 +120,8 @@ def _calcular(
     elif metodo == "PROMEDIO_MENSUAL":
         materiales, periodos, madurez = _promedio_materiales(sesion, contexto)
     entrada = EntradaCosteo(
-        gastos_fijos=Decimal(gastos["fijos"]),
-        gastos_variables=Decimal(gastos["variables"]),
+        gastos_fijos=fijos,
+        gastos_variables=variables,
         depreciacion=depreciacion,
         dias_por_semana=int(capacidad["dias_por_semana"]) if capacidad else None,
         horas_por_dia=Decimal(capacidad["horas_por_dia"]) if capacidad else None,
@@ -388,17 +325,8 @@ def historial(
 def _detalle_hoja(
     sesion: Session, contexto: ContextoSolicitud, identificador: UUID
 ) -> dict:
-    fila = (
-        (
-            sesion.execute(
-                text(
-                    "SELECT * FROM hoja_costos_tratamiento WHERE identificador=:id AND identificador_organizacion=:o"
-                ),
-                {"id": identificador, "o": contexto.organizacion},
-            )
-        )
-        .mappings()
-        .first()
+    fila = RepositorioHojasCostosSQLAlchemy(sesion).detalle(
+        contexto.organizacion, identificador
     )
     if fila is None:
         raise no_encontrado()

@@ -1,31 +1,10 @@
 from dataclasses import dataclass, field
 from decimal import ROUND_CEILING, ROUND_HALF_UP, Decimal
-from enum import StrEnum
+
+from app.domain.costeo.bloqueos import Bloqueo, CodigoBloqueo
 
 CERO = Decimal("0")
 CIEN = Decimal("100")
-
-
-class CodigoBloqueo(StrEnum):
-    SIN_COSTOS_INDIRECTOS_REGISTRADOS = "SIN_COSTOS_INDIRECTOS_REGISTRADOS"
-    SIN_PERFIL_CAPACIDAD = "SIN_PERFIL_CAPACIDAD"
-    SIN_TIEMPO_ATENCION = "SIN_TIEMPO_ATENCION"
-    DURACION_INVALIDA = "DURACION_INVALIDA"
-    ESPACIADO_FUERA_RANGO = "ESPACIADO_FUERA_RANGO"
-    SIN_METODO_MATERIALES = "SIN_METODO_MATERIALES"
-    SIN_MESES_VALIDOS = "SIN_MESES_VALIDOS"
-    RECETA_INCOMPLETA = "RECETA_INCOMPLETA"
-    IMPORTE_MATERIALES_FALTANTE = "IMPORTE_MATERIALES_FALTANTE"
-    MATERIALES_EN_CERO = "MATERIALES_EN_CERO"
-    AJUSTE_FUERA_RANGO = "AJUSTE_FUERA_RANGO"
-
-
-@dataclass(frozen=True, slots=True)
-class Bloqueo:
-    codigo: CodigoBloqueo
-    paso: int
-    mensaje: str
-    campo: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -199,7 +178,7 @@ def calcular_costeo(entrada: EntradaCosteo) -> ResultadoCosteo:
     precio_sugerido = redondear_precio(importe_ajustado, entrada.multiplo_redondeo)
     margen = ((precio_sugerido - costo_total) / precio_sugerido * CIEN) if precio_sugerido else CERO
     semaforo = (
-        "BAJO" if margen < Decimal("20") else "INTERMEDIO" if margen <= Decimal("40") else "ALTO"
+        "BAJO" if margen < Decimal("30") else "INTERMEDIO" if margen < Decimal("50") else "ALTO"
     )
     return ResultadoCosteo(
         completo=True,

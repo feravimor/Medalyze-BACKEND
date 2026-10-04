@@ -98,7 +98,7 @@ def test_transaccion_revierte_escritura_parcial(organizaciones) -> None:
             text("""
                     INSERT INTO equipo_o_instalacion_depreciable
                       (identificador_organizacion,nombre,precio_adquisicion,vida_util_anios)
-                    VALUES (:organizacion,'Inválido',1000,0)
+                    VALUES (:organizacion,'Inválido',-1000,1)
                 """),
             {"organizacion": organizacion_a},
         )

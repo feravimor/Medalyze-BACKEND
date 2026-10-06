@@ -13,7 +13,7 @@ dependencies = [
   "sqlalchemy==2.0.43",
   "psycopg[binary]==3.2.9",
   "alembic==1.16.5",
-  "pydantic-settings>=2.6,<3",
+  "pydantic-settings>=2.7,<3",
   "pyjwt==2.14.0",
   "argon2-cffi>=23.1,<26",
   "python-multipart>=0.0.12,<1",

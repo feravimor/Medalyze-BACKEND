@@ -9,6 +9,11 @@ from app.api.dependencias import ContextoSolicitud, obtener_contexto, obtener_se
 from app.api.esquemas import EquipoEntrada, GastoEntrada, PerfilCapacidadEntrada
 from app.application.utilidades import exigir_revision, limpiar_json
 from app.core.errores import conflicto_revision, no_encontrado
+from app.domain.costeo.periodicidad import equivalente_mensual
+from app.infrastructure.repositorios_costeo import (
+    RepositorioEquiposSQLAlchemy,
+    RepositorioGastosSQLAlchemy,
+)
 
 router = APIRouter()
 
@@ -121,9 +126,8 @@ def listar_gastos(
             sesion.execute(
                 text("""
         SELECT g.identificador,g.nombre,g.categoria::text categoria,g.importe_pagado_por_periodo,
-               g.codigo_periodicidad,g.fecha_inicio_vigencia,g.activo,g.revision,
-               round(g.importe_pagado_por_periodo*p.factor_mensual,2) equivalente_mensual
-        FROM gasto_registrado g JOIN periodicidad_pago p ON p.codigo=g.codigo_periodicidad
+               g.codigo_periodicidad,g.fecha_inicio_vigencia,g.activo,g.revision
+        FROM gasto_registrado g
         WHERE g.identificador_organizacion=:o ORDER BY g.fecha_hora_creacion DESC,g.identificador DESC LIMIT :limite
     """),
                 {"o": contexto.organizacion, "limite": limite},
@@ -132,7 +136,14 @@ def listar_gastos(
         .mappings()
         .all()
     )
-    return {"elementos": [limpiar_json(dict(f)) for f in filas], "siguiente_cursor": None}
+    elementos = []
+    for f in filas:
+        fila = dict(f)
+        fila["equivalente_mensual"] = equivalente_mensual(
+            Decimal(fila["importe_pagado_por_periodo"]), fila["codigo_periodicidad"]
+        ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        elementos.append(limpiar_json(fila))
+    return {"elementos": elementos, "siguiente_cursor": None}
 
 
 @router.post("/gastos", status_code=status.HTTP_201_CREATED)
@@ -285,7 +296,6 @@ def crear_equipo(
     contexto: ContextoSolicitud = Depends(obtener_contexto),
     sesion: Session = Depends(obtener_sesion_protegida),
 ) -> dict:
-    entrada.comprobar_relaciones()
     fila = (
         (
             sesion.execute(
@@ -325,7 +335,6 @@ def actualizar_equipo(
     contexto: ContextoSolicitud = Depends(obtener_contexto),
     sesion: Session = Depends(obtener_sesion_protegida),
 ) -> dict:
-    entrada.comprobar_relaciones()
     revision = exigir_revision(if_match)
     fila = (
         (
@@ -406,24 +415,8 @@ def resumen_costos(
     contexto: ContextoSolicitud = Depends(obtener_contexto),
     sesion: Session = Depends(obtener_sesion_protegida),
 ) -> dict:
-    gastos = (
-        (
-            sesion.execute(
-                text(
-                    """SELECT coalesce(sum(CASE WHEN g.categoria='FIJO' THEN g.importe_pagado_por_periodo*p.factor_mensual ELSE 0 END),0) fijos,coalesce(sum(CASE WHEN g.categoria='VARIABLE' THEN g.importe_pagado_por_periodo*p.factor_mensual ELSE 0 END),0) variables FROM gasto_registrado g JOIN periodicidad_pago p ON p.codigo=g.codigo_periodicidad WHERE g.identificador_organizacion=:o AND g.activo AND g.fecha_inicio_vigencia<=current_date AND (g.fecha_fin_vigencia IS NULL OR g.fecha_fin_vigencia>=current_date)"""
-                ),
-                {"o": contexto.organizacion},
-            )
-        )
-        .mappings()
-        .one()
-    )
-    depreciacion = sesion.scalar(
-        text(
-            "SELECT coalesce(sum(depreciacion_mensual),0) FROM equipo_o_instalacion_depreciable WHERE identificador_organizacion=:o AND estado='ACTIVO' AND (fecha_alta_en_servicio IS NULL OR fecha_alta_en_servicio<=current_date)"
-        ),
-        {"o": contexto.organizacion},
-    )
+    fijos, variables = RepositorioGastosSQLAlchemy(sesion).totales_mensuales(contexto.organizacion)
+    depreciacion = RepositorioEquiposSQLAlchemy(sesion).depreciacion_mensual(contexto.organizacion)
     capacidad = (
         (
             sesion.execute(
@@ -436,7 +429,7 @@ def resumen_costos(
         .mappings()
         .first()
     )
-    total = Decimal(gastos["fijos"]) + Decimal(gastos["variables"]) + Decimal(depreciacion or 0)
+    total = fijos + variables + depreciacion
     disponibles = efectivos = None
     if capacidad:
         disponibles = int(
@@ -476,8 +469,8 @@ def resumen_costos(
         )
     return limpiar_json(
         {
-            "gastos_fijos": gastos["fijos"],
-            "gastos_variables": gastos["variables"],
+            "gastos_fijos": fijos,
+            "gastos_variables": variables,
             "depreciacion": depreciacion,
             "total_mensual": total,
             "minutos_disponibles": disponibles,

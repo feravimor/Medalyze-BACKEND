@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencias import ContextoSolicitud, obtener_contexto, obtener_sesion_protegida
 from app.api.esquemas import CalculoEntrada, ConfiguracionTratamientoEntrada, VistaPreviaEntrada
-from app.application.utilidades import limpiar_json
+from app.application.utilidades import exigir_revision, limpiar_json
 from app.core.errores import ErrorAplicacion, conflicto_revision, no_encontrado
 from app.domain.costeo import EntradaCosteo, ResultadoCosteo, calcular_costeo
 from app.infrastructure.idempotencia import buscar_respuesta, completar, reservar
@@ -189,7 +189,7 @@ def emitir_calculo(
     contexto: ContextoSolicitud = Depends(obtener_contexto),
     sesion: Session = Depends(obtener_sesion_protegida),
 ) -> dict:
-    if if_match is None or int(if_match.strip('"')) != entrada.revision_tratamiento:
+    if exigir_revision(if_match) != entrada.revision_tratamiento:
         raise ErrorAplicacion(
             "REVISION_REQUERIDA", "La revisión del encabezado y el cuerpo debe coincidir.", 428
         )
@@ -199,7 +199,14 @@ def emitir_calculo(
     )
     if repetida:
         return repetida[1]
-    reservar(sesion, contexto, f"calcular:{identificador}", idempotency_key, cuerpo)
+    if not reservar(sesion, contexto, f"calcular:{identificador}", idempotency_key, cuerpo):
+        # Otra solicitud con la misma clave ganó la carrera (doble clic / reintento): repetir su respuesta.
+        repetida = buscar_respuesta(sesion, contexto, f"calcular:{identificador}", idempotency_key, cuerpo)
+        if repetida:
+            return repetida[1]
+        raise ErrorAplicacion(
+            "CONFLICTO_REVISION", "La operación con esta clave sigue en proceso.", 409
+        )
     resultado, datos = _calcular(sesion, contexto, identificador)
     tratamiento = datos["tratamiento"]
     if int(tratamiento["revision"]) != entrada.revision_tratamiento:

@@ -12,7 +12,7 @@ COPY app ./app
 COPY alembic.ini ./
 COPY migrations ./migrations
 COPY db ./db
-RUN pip install --no-cache-dir .
+RUN pip install --no-cache-dir --retries 5 --timeout 120 .
 
 USER medalyze
 EXPOSE 8000

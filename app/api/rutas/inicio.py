@@ -3,6 +3,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.api.dependencias import ContextoSolicitud, obtener_contexto, obtener_sesion_protegida
+from app.api.serializadores import hoja_resumen
 from app.application.utilidades import limpiar_json
 
 router = APIRouter()
@@ -62,33 +63,25 @@ def resumen_inicio(
         siguiente = {"codigo": "CALCULAR_TRATAMIENTO", "ruta": "/tratamientos"}
     else:
         siguiente = {"codigo": "TODO_LISTO", "ruta": "/tratamientos"}
-    ultimo = (
-        (
-            sesion.execute(
-                text("""
-        SELECT h.identificador,h.identificador_tratamiento,h.fecha_hora_creacion fecha_creacion,h.costo_total,h.precio_sugerido,h.margen_porcentaje
-        FROM hoja_costos_tratamiento h WHERE h.identificador_organizacion=:o ORDER BY h.fecha_hora_creacion DESC LIMIT 1
-    """),
-                {"o": contexto.organizacion},
-            )
-        )
-        .mappings()
-        .first()
-    )
-    recientes = (
-        (
-            sesion.execute(
-                text("""
-        SELECT h.identificador,h.identificador_tratamiento,t.nombre,h.fecha_hora_creacion fecha_creacion,h.costo_total,h.precio_sugerido,h.margen_porcentaje
+    hojas = (
+        sesion.execute(
+            text("""
+        SELECT h.*,v.metodo::text metodo_materiales,(t.identificador_hoja_vigente=h.identificador) vigente,
+               t.nombre nombre_tratamiento
         FROM hoja_costos_tratamiento h JOIN tratamiento t ON t.identificador=h.identificador_tratamiento
+        JOIN version_configuracion_tratamiento v ON v.identificador=h.identificador_version_configuracion
         WHERE h.identificador_organizacion=:o ORDER BY h.fecha_hora_creacion DESC LIMIT 5
     """),
-                {"o": contexto.organizacion},
-            )
+            {"o": contexto.organizacion},
         )
         .mappings()
         .all()
     )
+    resumenes = [hoja_resumen(h, h["metodo_materiales"], h["vigente"]) for h in hojas]
+    recientes = [
+        {**r, "identificador_tratamiento": str(h["identificador_tratamiento"]), "nombre": h["nombre_tratamiento"]}
+        for r, h in zip(resumenes, hojas, strict=True)
+    ]
     return limpiar_json(
         {
             "siguiente_paso": siguiente,
@@ -97,7 +90,7 @@ def resumen_inicio(
                 "pendientes": conteos["pendientes"],
                 "total": conteos["total"],
             },
-            "ultimo_resultado": dict(ultimo) if ultimo else None,
-            "recientes": [dict(f) for f in recientes],
+            "ultimo_resultado": resumenes[0] if resumenes else None,
+            "recientes": recientes,
         }
     )

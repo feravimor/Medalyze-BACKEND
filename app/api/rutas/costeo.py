@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencias import ContextoSolicitud, obtener_contexto, obtener_sesion_protegida
 from app.api.esquemas import CalculoEntrada, ConfiguracionTratamientoEntrada, VistaPreviaEntrada
+from app.api.serializadores import hoja_completa, hoja_resumen, resultado_costo
 from app.application.utilidades import exigir_revision, limpiar_json
 from app.core.errores import ErrorAplicacion, conflicto_revision, no_encontrado
 from app.domain.costeo import EntradaCosteo, ResultadoCosteo, calcular_costeo
@@ -109,14 +110,26 @@ def _calcular(
                 precio = RepositorioInsumosSQLAlchemy(sesion).precio_unitario_vigente(
                     contexto.organizacion, linea.identificador_insumo
                 )
-                if precio is not None:
-                    materiales += (
-                        linea.cantidad
-                        * (Decimal(1) + linea.merma_porcentaje / Decimal(100))
-                        * Decimal(precio)
-                    )
+                if precio is None:
+                    # Insumo archivado o ajeno: la receta está incompleta. Omitir la línea en
+                    # silencio subestimaría el costo y, con él, el precio.
+                    materiales = None
+                    break
+                materiales += (
+                    linea.cantidad
+                    * (Decimal(1) + linea.merma_porcentaje / Decimal(100))
+                    * Decimal(precio)
+                )
         else:
             materiales, lineas = _materiales_receta(sesion, config["identificador"])
+            total_lineas = sesion.scalar(
+                text(
+                    "SELECT count(*) FROM linea_receta_insumos_tratamiento WHERE identificador_version_configuracion=:v"
+                ),
+                {"v": config["identificador"]},
+            )
+            if len(lineas) < int(total_lineas or 0):
+                materiales = None  # alguna línea usa un insumo archivado: no se calcula a medias
     elif metodo == "PROMEDIO_MENSUAL":
         materiales, periodos, madurez = _promedio_materiales(sesion, contexto)
     entrada = EntradaCosteo(
@@ -144,29 +157,30 @@ def _calcular(
     }
 
 
-def _respuesta_resultado(resultado: ResultadoCosteo) -> dict:
+def _respuesta_resultado(resultado: ResultadoCosteo, ajuste_porcentaje: Decimal | None) -> dict:
     bloqueos = [
         {"codigo": b.codigo.value, "paso": b.paso, "mensaje": b.mensaje, "campo": b.campo}
         for b in resultado.bloqueos
     ]
     if not resultado.completo:
         return limpiar_json({"estado": "borrador", "resultado": None, "bloqueos": bloqueos})
-    return limpiar_json(
-        {
-            "estado": "completo",
-            "resultado": {
+    return {
+        "estado": "completo",
+        "resultado": resultado_costo(
+            {
                 "costo_tiempo": resultado.costo_tiempo,
                 "materiales_generales": resultado.materiales_generales,
                 "materiales_especiales": resultado.materiales_especiales,
                 "costo_total": resultado.costo_total,
+                "ajuste_porcentaje": ajuste_porcentaje,
                 "importe_ajustado": resultado.importe_ajustado,
                 "precio_sugerido": resultado.precio_sugerido,
                 "margen_porcentaje": resultado.margen_porcentaje,
                 "semaforo": resultado.semaforo,
-            },
-            "bloqueos": [],
-        }
-    )
+            }
+        ),
+        "bloqueos": [],
+    }
 
 
 @router.post("/tratamientos/{identificador}/vista-previa")
@@ -176,8 +190,9 @@ def vista_previa(
     contexto: ContextoSolicitud = Depends(obtener_contexto),
     sesion: Session = Depends(obtener_sesion_protegida),
 ) -> dict:
-    resultado, _ = _calcular(sesion, contexto, identificador, entrada.configuracion)
-    return _respuesta_resultado(resultado)
+    resultado, datos = _calcular(sesion, contexto, identificador, entrada.configuracion)
+    ajuste = datos["entrada"].ajuste_porcentaje if resultado.completo else None
+    return _respuesta_resultado(resultado, ajuste)
 
 
 @router.post("/tratamientos/{identificador}/calculos", status_code=201)
@@ -211,6 +226,10 @@ def emitir_calculo(
     tratamiento = datos["tratamiento"]
     if int(tratamiento["revision"]) != entrada.revision_tratamiento:
         raise conflicto_revision(int(tratamiento["revision"]))
+    if str(tratamiento.get("estado")) == "ARCHIVADO":
+        raise ErrorAplicacion(
+            "ERROR_VALIDACION", "Restaura el tratamiento antes de calcularlo.", 422
+        )
     if not resultado.completo:
         bloqueos = [
             {"codigo": b.codigo.value, "paso": b.paso, "mensaje": b.mensaje, "campo": b.campo}
@@ -313,8 +332,7 @@ def historial(
         (
             sesion.execute(
                 text("""
-        SELECT h.identificador,h.fecha_hora_creacion fecha_creacion,h.costo_total,h.precio_sugerido,h.margen_porcentaje,
-               h.ajuste_porcentaje,v.metodo::text metodo_materiales,(t.identificador_hoja_vigente=h.identificador) vigente
+        SELECT h.*,v.metodo::text metodo_materiales,(t.identificador_hoja_vigente=h.identificador) vigente
         FROM hoja_costos_tratamiento h JOIN tratamiento t ON t.identificador=h.identificador_tratamiento
         JOIN version_configuracion_tratamiento v ON v.identificador=h.identificador_version_configuracion
         WHERE h.identificador_tratamiento=:t AND h.identificador_organizacion=:o
@@ -326,7 +344,10 @@ def historial(
         .mappings()
         .all()
     )
-    return {"elementos": [limpiar_json(dict(f)) for f in filas], "siguiente_cursor": None}
+    return {
+        "elementos": [hoja_resumen(f, f["metodo_materiales"], f["vigente"]) for f in filas],
+        "siguiente_cursor": None,
+    }
 
 
 def _detalle_hoja(
@@ -337,34 +358,41 @@ def _detalle_hoja(
     )
     if fila is None:
         raise no_encontrado()
+    metodo = sesion.scalar(
+        text("SELECT metodo::text FROM version_configuracion_tratamiento WHERE identificador=:v"),
+        {"v": fila["identificador_version_configuracion"]},
+    )
     lineas = (
-        (
-            sesion.execute(
-                text(
-                    "SELECT nombre_insumo,cantidad,costo_unitario,subtotal FROM linea_insumo_hoja_costos WHERE identificador_hoja=:h"
-                ),
-                {"h": identificador},
-            )
+        sesion.execute(
+            text(
+                "SELECT identificador_insumo,nombre_insumo nombre,cantidad,costo_unitario,subtotal FROM linea_insumo_hoja_costos WHERE identificador_hoja=:h ORDER BY nombre_insumo"
+            ),
+            {"h": identificador},
         )
         .mappings()
         .all()
     )
     periodos = (
-        (
-            sesion.execute(
-                text(
-                    "SELECT mes,consumo_materiales,tratamientos_atendidos,incluido,motivo_exclusion::text FROM periodo_mensual_hoja_costos WHERE identificador_hoja=:h ORDER BY mes DESC"
-                ),
-                {"h": identificador},
-            )
+        sesion.execute(
+            text(
+                "SELECT identificador_periodo,mes,consumo_materiales,tratamientos_atendidos,incluido,motivo_exclusion::text motivo_exclusion FROM periodo_mensual_hoja_costos WHERE identificador_hoja=:h ORDER BY mes DESC"
+            ),
+            {"h": identificador},
         )
         .mappings()
         .all()
     )
-    resultado = dict(fila)
-    resultado["lineas_insumo"] = [dict(x) for x in lineas]
-    resultado["periodos"] = [dict(x) for x in periodos]
-    return limpiar_json(resultado)
+    aportes = (
+        sesion.execute(
+            text(
+                "SELECT tipo_origen::text tipo_origen,identificador_origen,nombre,importe_original,equivalente_mensual,incluido,motivo_exclusion FROM aporte_a_costos_indirectos_hoja WHERE identificador_hoja=:h"
+            ),
+            {"h": identificador},
+        )
+        .mappings()
+        .all()
+    )
+    return hoja_completa(fila, metodo, list(lineas), list(periodos), list(aportes))
 
 
 @router.get("/hojas-costos/{identificador}")

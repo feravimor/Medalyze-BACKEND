@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Query, status
@@ -146,7 +146,9 @@ def promedio_materiales(
     madurez = "INICIAL" if len(filas) == 1 else "EN_FORMACION" if len(filas) == 2 else "MADURA"
     return limpiar_json(
         {
-            "importe_por_tratamiento": consumo / Decimal(tratamientos),
+            "importe_por_tratamiento": (consumo / Decimal(tratamientos)).quantize(
+                Decimal("0.0000000001"), rounding=ROUND_HALF_UP
+            ),
             "madurez": madurez,
             "periodos_incluidos": [f["identificador"] for f in filas],
             "periodos_excluidos": [],
@@ -274,6 +276,16 @@ def restaurar_periodo(
     contexto: ContextoSolicitud = Depends(obtener_contexto),
     sesion: Session = Depends(obtener_sesion_protegida),
 ) -> dict:
+    movimiento = sesion.scalar(
+        text(
+            "SELECT v.tipo_movimiento::text FROM periodo_mensual_consumo p JOIN version_periodo_mensual_consumo v ON v.identificador=p.identificador_version_vigente WHERE p.identificador=:id AND p.identificador_organizacion=:o"
+        ),
+        {"id": identificador, "o": contexto.organizacion},
+    )
+    if movimiento is None:
+        raise no_encontrado()
+    if movimiento != "ANULACION":
+        raise ErrorAplicacion("ERROR_VALIDACION", "Este periodo no está anulado.", 422)
     anterior = (
         (
             sesion.execute(

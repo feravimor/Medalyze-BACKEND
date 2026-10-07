@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Query, Response, status
+from psycopg import errors as errores_pg
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -108,9 +109,11 @@ def crear_insumo(
             },
         )
     except IntegrityError as exc:
-        raise ErrorAplicacion(
-            "INSUMO_DUPLICADO", "Ya tienes un insumo con ese nombre.", 409
-        ) from exc
+        if isinstance(exc.orig, errores_pg.UniqueViolation):
+            raise ErrorAplicacion(
+                "INSUMO_DUPLICADO", "Ya tienes un insumo con ese nombre.", 409
+            ) from exc
+        raise  # unidad inexistente, cantidad inválida…: el manejador global responde 422
     sesion.execute(
         text(
             "INSERT INTO precio_historico_insumo (identificador_insumo,precio_presentacion,cantidad_contenida) VALUES (:id,:precio,:cantidad)"
@@ -147,20 +150,27 @@ def actualizar_insumo(
     )
     if anterior is None:
         raise no_encontrado()
-    actualizado = sesion.scalar(
-        text(
-            """UPDATE insumo_clinico SET nombre=:nombre,presentacion=:presentacion,codigo_unidad=:unidad,cantidad_contenida=:cantidad,revision=revision+1 WHERE identificador=:id AND identificador_organizacion=:o AND revision=:revision RETURNING identificador"""
-        ),
-        {
-            "nombre": entrada.nombre,
-            "presentacion": entrada.presentacion,
-            "unidad": entrada.codigo_unidad,
-            "cantidad": entrada.cantidad_contenida,
-            "id": identificador,
-            "o": contexto.organizacion,
-            "revision": revision,
-        },
-    )
+    try:
+        actualizado = sesion.scalar(
+            text(
+                """UPDATE insumo_clinico SET nombre=:nombre,presentacion=:presentacion,codigo_unidad=:unidad,cantidad_contenida=:cantidad,revision=revision+1 WHERE identificador=:id AND identificador_organizacion=:o AND revision=:revision RETURNING identificador"""
+            ),
+            {
+                "nombre": entrada.nombre,
+                "presentacion": entrada.presentacion,
+                "unidad": entrada.codigo_unidad,
+                "cantidad": entrada.cantidad_contenida,
+                "id": identificador,
+                "o": contexto.organizacion,
+                "revision": revision,
+            },
+        )
+    except IntegrityError as exc:
+        if isinstance(exc.orig, errores_pg.UniqueViolation):
+            raise ErrorAplicacion(
+                "INSUMO_DUPLICADO", "Ya tienes un insumo con ese nombre.", 409
+            ) from exc
+        raise
     if actualizado is None:
         raise conflicto_revision(int(anterior["revision"]))
     if (

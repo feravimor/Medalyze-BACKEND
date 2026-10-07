@@ -18,17 +18,24 @@ from app.infrastructure.idempotencia import buscar_respuesta, completar, reserva
 
 router = APIRouter()
 
+# ResultadoCosto del contrato: los nueve campos de la hoja vigente. El dinero va como texto y los
+# porcentajes como número, igual que en el resto de la API.
+_SQL_RESULTADO = """jsonb_build_object(
+                 'costo_tiempo',h.costo_tiempo::text,'materiales_generales',h.materiales_generales::text,
+                 'materiales_especiales',h.materiales_especiales::text,'costo_total',h.costo_total::text,
+                 'ajuste_porcentaje',h.ajuste_porcentaje,'importe_ajustado',h.importe_ajustado::text,
+                 'precio_sugerido',h.precio_sugerido::text,'margen_porcentaje',h.margen_porcentaje,
+                 'semaforo',h.semaforo::text)"""
+
 
 def _detalle(sesion: Session, contexto: ContextoSolicitud, identificador: UUID) -> dict:
     fila = (
         (
             sesion.execute(
-                text("""
+                text(f"""
         SELECT t.identificador,t.nombre,t.especialidad,t.estado::text estado,t.revision,
                v.duracion_clinica,v.espaciado,v.metodo::text metodo_materiales,v.importe_materiales,v.ajuste_porcentaje,
-               CASE WHEN h.identificador IS NULL THEN NULL ELSE jsonb_build_object(
-                 'identificador_hoja',h.identificador,'costo_total',h.costo_total,'precio_sugerido',h.precio_sugerido,
-                 'margen_porcentaje',h.margen_porcentaje,'fecha_creacion',h.fecha_hora_creacion) END ultimo_resultado
+               CASE WHEN h.identificador IS NULL THEN NULL ELSE {_SQL_RESULTADO} END ultimo_resultado
         FROM tratamiento t LEFT JOIN version_configuracion_tratamiento v ON v.identificador=t.identificador_version_vigente
         LEFT JOIN hoja_costos_tratamiento h ON h.identificador=t.identificador_hoja_vigente
         WHERE t.identificador=:id AND t.identificador_organizacion=:o
@@ -173,9 +180,9 @@ def listar_tratamientos(
     filas = (
         (
             sesion.execute(
-                text("""
+                text(f"""
         SELECT t.identificador,t.nombre,t.especialidad,t.estado::text estado,t.revision,v.duracion_clinica,
-               CASE WHEN h.identificador IS NULL THEN NULL ELSE jsonb_build_object('costo_total',h.costo_total,'precio_sugerido',h.precio_sugerido,'margen_porcentaje',h.margen_porcentaje) END ultimo_resultado
+               CASE WHEN h.identificador IS NULL THEN NULL ELSE {_SQL_RESULTADO} END ultimo_resultado
         FROM tratamiento t LEFT JOIN version_configuracion_tratamiento v ON v.identificador=t.identificador_version_vigente
         LEFT JOIN hoja_costos_tratamiento h ON h.identificador=t.identificador_hoja_vigente
         WHERE t.identificador_organizacion=:o AND (CAST(:archivados AS boolean) OR t.estado<>'ARCHIVADO')
@@ -333,7 +340,7 @@ def guardar_configuracion(
         (
             sesion.execute(
                 text(
-                    "SELECT identificador,revision FROM tratamiento WHERE identificador=:id AND identificador_organizacion=:o FOR UPDATE"
+                    "SELECT identificador,revision,estado::text estado FROM tratamiento WHERE identificador=:id AND identificador_organizacion=:o FOR UPDATE"
                 ),
                 {"id": identificador, "o": contexto.organizacion},
             )
@@ -345,6 +352,10 @@ def guardar_configuracion(
         raise no_encontrado()
     if tratamiento["revision"] != revision:
         raise conflicto_revision(int(tratamiento["revision"]))
+    if tratamiento["estado"] == "ARCHIVADO":
+        raise ErrorAplicacion(
+            "ERROR_VALIDACION", "Restaura el tratamiento antes de editarlo.", 422
+        )
     numero = sesion.scalar(
         text(
             "SELECT coalesce(max(numero_version),0)+1 FROM version_configuracion_tratamiento WHERE identificador_tratamiento=:t"

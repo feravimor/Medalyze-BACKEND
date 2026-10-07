@@ -1,4 +1,5 @@
 from decimal import ROUND_HALF_UP, Decimal
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Query, Response, status
@@ -76,8 +77,8 @@ def guardar_capacidad(
             sesion.execute(
                 text("""
         INSERT INTO perfil_capacidad_atencion
-          (identificador_organizacion,dias_por_semana,horas_por_dia,porcentaje_ocupacion,ocupacion_confirmada)
-        VALUES (:o,:dias,:horas,:ocupacion,:confirmada)
+          (identificador_organizacion,dias_por_semana,horas_por_dia,porcentaje_ocupacion,ocupacion_confirmada,revision)
+        VALUES (:o,:dias,:horas,:ocupacion,:confirmada,:revision_nueva)
         RETURNING identificador,dias_por_semana,horas_por_dia,porcentaje_ocupacion,ocupacion_confirmada,fecha_inicio_vigencia,revision
     """),
                 {
@@ -86,6 +87,8 @@ def guardar_capacidad(
                     "horas": entrada.horas_por_dia,
                     "ocupacion": entrada.porcentaje_ocupacion,
                     "confirmada": entrada.ocupacion_confirmada,
+                    # Cada guardado crea una fila nueva; su revisión debe continuar la de la anterior.
+                    "revision_nueva": int(actual["revision"]) + 1 if actual is not None else 0,
                 },
             )
         )
@@ -115,6 +118,15 @@ def periodicidades(sesion: Session = Depends(obtener_sesion_protegida)) -> dict:
     return {"elementos": [limpiar_json(dict(f)) for f in filas]}
 
 
+def _gasto_a_json(fila: Any) -> dict:
+    """Un gasto con su equivalente mensual exacto (redondeado a centavos para mostrarlo)."""
+    gasto = dict(fila)
+    gasto["equivalente_mensual"] = equivalente_mensual(
+        Decimal(gasto["importe_pagado_por_periodo"]), gasto["codigo_periodicidad"]
+    ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return limpiar_json(gasto)
+
+
 @router.get("/gastos")
 def listar_gastos(
     limite: int = Query(default=20, ge=1, le=100),
@@ -136,13 +148,7 @@ def listar_gastos(
         .mappings()
         .all()
     )
-    elementos = []
-    for f in filas:
-        fila = dict(f)
-        fila["equivalente_mensual"] = equivalente_mensual(
-            Decimal(fila["importe_pagado_por_periodo"]), fila["codigo_periodicidad"]
-        ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        elementos.append(limpiar_json(fila))
+    elementos = [_gasto_a_json(f) for f in filas]
     return {"elementos": elementos, "siguiente_cursor": None}
 
 
@@ -180,7 +186,7 @@ def crear_gasto(
         ),
         {"o": contexto.organizacion},
     )
-    return limpiar_json(dict(fila))
+    return _gasto_a_json(fila)
 
 
 @router.patch("/gastos/{identificador}")
@@ -233,7 +239,7 @@ def actualizar_gasto(
         ),
         {"o": contexto.organizacion},
     )
-    return limpiar_json(dict(fila))
+    return _gasto_a_json(fila)
 
 
 @router.delete("/gastos/{identificador}", status_code=status.HTTP_204_NO_CONTENT)

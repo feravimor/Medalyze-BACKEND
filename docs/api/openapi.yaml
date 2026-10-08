@@ -264,6 +264,7 @@ paths:
     post:
       operationId: cerrarSesion
       summary: Revocar la sesión actual
+      description: Revoca el token de renovación indicado (en el cuerpo o en la cookie). Si no se envía ninguno, revoca todos los tokens de renovación vigentes del usuario, para que cerrar sesión siempre surta efecto.
       tags:
       - Autenticación
       responses:

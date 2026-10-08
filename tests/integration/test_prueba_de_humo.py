@@ -167,6 +167,24 @@ def test_inicio_de_sesion_renovacion_y_cierre(A: Api) -> None:
     assert A("POST", "/autenticacion/renovacion", json={"token_actualizacion": nuevo}, sesion=False).status_code == 401
 
 
+def test_cerrar_sesion_sin_enviar_el_token_de_renovacion_tambien_lo_revoca(A: Api) -> None:
+    """El frontend llama al cierre de sesión sin cuerpo: antes devolvía 204 sin revocar y el token seguía vigente."""
+    r = A("POST", "/autenticacion/inicio-sesion", json={"correo": A.correo, "contrasena": CONTRASENA}, sesion=False, estado=200).json()  # type: ignore[attr-defined]
+    sesion_nueva = Api(A.cliente, CONTRATO, r["token_acceso"])
+    sesion_nueva("POST", "/autenticacion/cierre-sesion", estado=204)
+    despues = A("POST", "/autenticacion/renovacion", json={"token_actualizacion": r["token_actualizacion"]}, sesion=False)
+    assert despues.status_code == 401, f"el token de renovación siguió funcionando tras cerrar sesión ({despues.status_code})"
+
+
+def test_los_mensajes_de_validacion_llegan_en_espanol(A: Api) -> None:
+    r = A("POST", "/autenticacion/registro", json={"nombre_completo": "", "correo": "no-es-correo", "contrasena": "corta"}, sesion=False)
+    assert r.status_code == 422
+    mensajes = {c["campo"]: c["mensaje"] for c in r.json()["detalle"]["campos"]}
+    assert mensajes["contrasena"] == "Debe tener al menos 10 caracteres."
+    assert mensajes["correo"] == "Escribe un correo electrónico válido."
+    assert mensajes["nombre_completo"] == "No puede estar vacío."
+
+
 # --------------------------------------------------------------------------- 3 · cuenta y onboarding
 
 

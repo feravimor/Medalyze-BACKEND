@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from psycopg import errors as errores_pg
 from sqlalchemy.exc import DataError, IntegrityError
 
+from app.api.mensajes_validacion import mensaje_de_validacion
 from app.api.router import router
 from app.core.config import obtener_configuracion
 from app.core.errores import ErrorAplicacion
@@ -62,7 +63,7 @@ async def manejar_error_aplicacion(request: Request, error: ErrorAplicacion) -> 
 @app.exception_handler(RequestValidationError)
 async def manejar_validacion(request: Request, error: RequestValidationError) -> JSONResponse:
     campos = [
-        {"campo": ".".join(str(x) for x in item["loc"] if x != "body"), "mensaje": item["msg"]}
+        {"campo": ".".join(str(x) for x in item["loc"] if x != "body"), "mensaje": mensaje_de_validacion(item)}
         for item in error.errors()
     ]
     return JSONResponse(

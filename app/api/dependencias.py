@@ -33,6 +33,23 @@ def obtener_contexto(
     )
 
 
+def obtener_contexto_opcional(
+    credencial: HTTPAuthorizationCredentials | None = Depends(bearer),
+) -> ContextoSolicitud | None:
+    """Permite cerrar una sesión aunque el access token ya haya expirado."""
+    if credencial is None:
+        return None
+    try:
+        payload = decodificar_token_acceso(credencial.credentials)
+    except ErrorAplicacion:
+        return None
+    return ContextoSolicitud(
+        usuario=UUID(payload["sub"]),
+        organizacion=UUID(payload["org"]),
+        rol=str(payload["rol"]),
+    )
+
+
 def obtener_sesion_protegida(
     contexto: ContextoSolicitud = Depends(obtener_contexto),
     sesion: Session = Depends(obtener_sesion),

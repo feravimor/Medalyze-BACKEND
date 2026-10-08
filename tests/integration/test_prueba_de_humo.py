@@ -85,7 +85,6 @@ def _registrar(cliente: TestClient, nombre: str) -> Api:
     api.token = cuerpo["token_acceso"]
     api.correo = correo  # type: ignore[attr-defined]
     api.org = cuerpo["organizacion"]["identificador"]  # type: ignore[attr-defined]
-    api.refresh = cuerpo["token_actualizacion"]  # type: ignore[attr-defined]
     return api
 
 
@@ -152,19 +151,17 @@ def test_inicio_de_sesion_renovacion_y_cierre(A: Api) -> None:
         sesion=False,
         estado=200,
     )
-    refresco = r.json()["token_actualizacion"]
     assert A(
         "POST",
         "/autenticacion/inicio-sesion",
         json={"correo": A.correo, "contrasena": "contrasena-equivocada"},  # type: ignore[attr-defined]
         sesion=False,
     ).status_code == 401
-    r = A("POST", "/autenticacion/renovacion", json={"token_actualizacion": refresco}, sesion=False, estado=200)
-    nuevo = r.json()["token_actualizacion"]
-    assert nuevo != refresco
-    A("POST", "/autenticacion/cierre-sesion", json={"token_actualizacion": nuevo}, estado=204)
+    r = A("POST", "/autenticacion/renovacion", json={}, sesion=False, estado=200)
+    assert "token_acceso" in r.json()
+    A("POST", "/autenticacion/cierre-sesion", json={}, estado=204)
     # El token cerrado ya no sirve para renovar.
-    assert A("POST", "/autenticacion/renovacion", json={"token_actualizacion": nuevo}, sesion=False).status_code == 401
+    assert A("POST", "/autenticacion/renovacion", json={}, sesion=False).status_code == 401
 
 
 # --------------------------------------------------------------------------- 3 · cuenta y onboarding
@@ -855,6 +852,10 @@ def test_toda_operacion_protegida_exige_sesion(cliente: TestClient, metodo: str,
     api = Api(cliente, CONTRATO)
     ruta = re.sub(r"\{[^}]+\}", "00000000-0000-4000-8000-000000000000", plantilla)
     r = api(metodo, ruta, json={} if metodo in ("POST", "PUT", "PATCH") else None, sesion=False)
+    if plantilla == "/autenticacion/cierre-sesion":
+        # Esta operación también autentica mediante la cookie HttpOnly, que el cliente conserva.
+        assert r.status_code in (401, 204)
+        return
     assert r.status_code == 401, f"{metodo} {plantilla} sin sesión devolvió {r.status_code}"
     assert r.json()["detalle"]["codigo"] in {"SIN_AUTENTICACION", "TOKEN_VENCIDO"}
 

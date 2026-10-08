@@ -5,7 +5,7 @@ from app.core.config import SECRETO_DE_DESARROLLO, Configuracion
 
 
 def _crear(monkeypatch: pytest.MonkeyPatch, **entorno: str) -> Configuracion:
-    for clave in ("CORS_ORIGINS", "APP_ENV", "JWT_SECRET"):
+    for clave in ("CORS_ORIGINS", "APP_ENV", "JWT_SECRET", "REFRESH_COOKIE_SECURE"):
         monkeypatch.delenv(clave, raising=False)
     for clave, valor in entorno.items():
         monkeypatch.setenv(clave, valor)
@@ -38,5 +38,10 @@ def test_secreto_publico_se_rechaza_fuera_de_local(monkeypatch: pytest.MonkeyPat
 
 
 def test_secreto_propio_se_acepta_en_produccion(monkeypatch: pytest.MonkeyPatch) -> None:
-    config = _crear(monkeypatch, APP_ENV="production", JWT_SECRET="x" * 40)
+    config = _crear(
+        monkeypatch,
+        APP_ENV="production",
+        JWT_SECRET="x" * 40,
+        REFRESH_COOKIE_SECURE="true",
+    )
     assert config.jwt_secret == "x" * 40

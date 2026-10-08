@@ -46,7 +46,13 @@ paths:
                 $ref: '#/components/schemas/Error500'
               example:
                 detalle:
-                  codigo: ERROR_INTERNO
+                   codigo: ERROR_INTERNO
+        '503':
+          description: Dependencia no disponible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EstadoServicio'
       security: []
   /ready:
     get:
@@ -73,6 +79,12 @@ paths:
               example:
                 detalle:
                   codigo: ERROR_INTERNO
+        '503':
+          description: Dependencia no disponible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EstadoServicio'
       security: []
   /autenticacion/registro:
     post:
@@ -253,19 +265,33 @@ paths:
                   codigo: ERROR_INTERNO
       security: []
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/RenovacionEntrada'
             example:
               token_actualizacion: ejemplo
+      parameters:
+      - name: medalyze_refresh_token
+        in: cookie
+        required: false
+        description: Refresh token HttpOnly. Se rota en cada renovación.
+        schema:
+          type: string
   /autenticacion/cierre-sesion:
     post:
       operationId: cerrarSesion
       summary: Revocar la sesión actual
       tags:
       - Autenticación
+      parameters:
+      - name: medalyze_refresh_token
+        in: cookie
+        required: false
+        description: Refresh token HttpOnly que se revocará y expirará.
+        schema:
+          type: string
       responses:
         '204':
           description: Operación exitosa
@@ -4428,9 +4454,6 @@ components:
       properties:
         token_acceso:
           type: string
-        token_actualizacion:
-          type: string
-          description: Omitible si se transporta en cookie HttpOnly.
         expira_en_segundos:
           type: integer
           const: 900

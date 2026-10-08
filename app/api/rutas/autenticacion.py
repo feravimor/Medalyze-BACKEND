@@ -1,15 +1,21 @@
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from fastapi import APIRouter, Cookie, Depends, Response, status
+from fastapi import APIRouter, Cookie, Depends, Request, Response, status
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.api.dependencias import ContextoSolicitud, obtener_contexto, obtener_sesion_protegida
+from app.api.dependencias import (
+    ContextoSolicitud,
+    obtener_contexto,
+    obtener_contexto_opcional,
+    obtener_sesion_protegida,
+)
 from app.api.esquemas import InicioSesionEntrada, RegistroEntrada, RenovacionEntrada
 from app.core.config import obtener_configuracion
 from app.core.database import fijar_contexto_organizacion, obtener_sesion
 from app.core.errores import ErrorAplicacion
+from app.core.rate_limit import limitar_intentos
 from app.core.seguridad import (
     crear_token_acceso,
     crear_token_actualizacion,
@@ -46,7 +52,7 @@ def _crear_sesion(
     return acceso, actualizacion, segundos
 
 
-def _respuesta_sesion(fila: dict, acceso: str, actualizacion: str, segundos: int) -> dict:
+def _respuesta_sesion(fila: dict, acceso: str, segundos: int) -> dict:
     respuesta = {
         "token_acceso": acceso,
         "expira_en_segundos": segundos,
@@ -66,15 +72,40 @@ def _respuesta_sesion(fila: dict, acceso: str, actualizacion: str, segundos: int
         },
         "onboarding_completado": fila["onboarding_completado"],
     }
-    if actualizacion:
-        respuesta["token_actualizacion"] = actualizacion
     return respuesta
+
+
+def _establecer_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        key=configuracion.refresh_cookie_name,
+        value=token,
+        max_age=configuracion.refresh_ttl_days * 24 * 60 * 60,
+        expires=configuracion.refresh_ttl_days * 24 * 60 * 60,
+        path=configuracion.refresh_cookie_path,
+        secure=configuracion.refresh_cookie_secure,
+        httponly=True,
+        samesite=configuracion.refresh_cookie_samesite,
+    )
+
+
+def _expirar_cookie(response: Response) -> None:
+    response.delete_cookie(
+        key=configuracion.refresh_cookie_name,
+        path=configuracion.refresh_cookie_path,
+        secure=configuracion.refresh_cookie_secure,
+        httponly=True,
+        samesite=configuracion.refresh_cookie_samesite,
+    )
 
 
 @router.post("/registro", status_code=status.HTTP_201_CREATED)
 def registro(
-    entrada: RegistroEntrada, sesion: Session = Depends(obtener_sesion)
+    entrada: RegistroEntrada,
+    request: Request,
+    response: Response,
+    sesion: Session = Depends(obtener_sesion),
 ) -> dict:
+    limitar_intentos(f"registro:{request.client.host if request.client else 'desconocido'}")
     with sesion.begin():
         existe = sesion.scalar(
             text("SELECT 1 FROM usuario_plataforma WHERE correo=:correo"),
@@ -130,13 +161,18 @@ def registro(
             "organizacion_revision": 0,
             "onboarding_completado": False,
         }
-    return _respuesta_sesion(fila, acceso, actualizacion, segundos)
+    _establecer_cookie(response, actualizacion)
+    return _respuesta_sesion(fila, acceso, segundos)
 
 
 @router.post("/inicio-sesion")
 def inicio_sesion(
-    entrada: InicioSesionEntrada, sesion: Session = Depends(obtener_sesion)
+    entrada: InicioSesionEntrada,
+    request: Request,
+    response: Response,
+    sesion: Session = Depends(obtener_sesion),
 ) -> dict:
+    limitar_intentos(f"inicio-sesion:{request.client.host if request.client else 'desconocido'}")
     with sesion.begin():
         fila = (
             (
@@ -177,14 +213,23 @@ def inicio_sesion(
         )
         datos_sesion = dict(fila)
         datos_sesion["onboarding_completado"] = bool(onboarding_completado)
-    return _respuesta_sesion(datos_sesion, acceso, actualizacion, segundos)
+    _establecer_cookie(response, actualizacion)
+    return _respuesta_sesion(datos_sesion, acceso, segundos)
 
 
 @router.post("/renovacion")
 def renovacion(
-    entrada: RenovacionEntrada, sesion: Session = Depends(obtener_sesion)
+    response: Response,
+    request: Request,
+    entrada: RenovacionEntrada | None = None,
+    refresh_cookie: str | None = Cookie(default=None, alias=configuracion.refresh_cookie_name),
+    sesion: Session = Depends(obtener_sesion),
 ) -> dict:
-    token_hash = hash_token_actualizacion(entrada.token_actualizacion)
+    limitar_intentos(f"renovacion:{request.client.host if request.client else 'desconocido'}")
+    token_actualizacion = (entrada.token_actualizacion if entrada else None) or refresh_cookie
+    if not token_actualizacion:
+        raise ErrorAplicacion("SIN_AUTENTICACION", "La sesión no es válida.", 401)
+    token_hash = hash_token_actualizacion(token_actualizacion)
     reutilizado = False
     respuesta: dict | None = None
     with sesion.begin():
@@ -249,7 +294,8 @@ def renovacion(
                 ),
                 {"nuevo": nuevo_id, "id": token["identificador"]},
             )
-            respuesta = _respuesta_sesion(dict(fila), nuevo_acceso, nuevo_refresh, segundos)
+            respuesta = _respuesta_sesion(dict(fila), nuevo_acceso, segundos)
+            _establecer_cookie(response, nuevo_refresh)
     if reutilizado:
         raise ErrorAplicacion(
             "SIN_AUTENTICACION", "Se detectó reutilización de una sesión revocada.", 401
@@ -260,21 +306,40 @@ def renovacion(
 
 @router.post("/cierre-sesion", status_code=status.HTTP_204_NO_CONTENT)
 def cierre_sesion(
+    response: Response,
     entrada: RenovacionEntrada | None = None,
-    token_actualizacion: str | None = Cookie(default=None),
-    contexto: ContextoSolicitud = Depends(obtener_contexto),
+    refresh_cookie: str | None = Cookie(default=None, alias=configuracion.refresh_cookie_name),
+    contexto: ContextoSolicitud | None = Depends(obtener_contexto_opcional),
     sesion: Session = Depends(obtener_sesion),
 ) -> Response:
-    token = (entrada.token_actualizacion if entrada else None) or token_actualizacion
+    token = (entrada.token_actualizacion if entrada else None) or refresh_cookie
+    if token is None and contexto is None:
+        raise ErrorAplicacion("SIN_AUTENTICACION", "Debes iniciar sesión.", 401)
     with sesion.begin():
-        if token:
+        if token and contexto is not None:
             sesion.execute(
                 text(
                     "UPDATE token_actualizacion_sesion SET fecha_hora_revocacion=coalesce(fecha_hora_revocacion,now()) WHERE identificador_usuario=:u AND hash_token=:hash"
                 ),
                 {"u": contexto.usuario, "hash": hash_token_actualizacion(token)},
             )
-    return Response(status_code=204)
+        elif token:
+            sesion.execute(
+                text(
+                    "UPDATE token_actualizacion_sesion SET fecha_hora_revocacion=coalesce(fecha_hora_revocacion,now()) WHERE hash_token=:hash"
+                ),
+                {"hash": hash_token_actualizacion(token)},
+            )
+        elif contexto is not None:
+            sesion.execute(
+                text(
+                    "UPDATE token_actualizacion_sesion SET fecha_hora_revocacion=now() WHERE identificador_usuario=:u AND fecha_hora_revocacion IS NULL"
+                ),
+                {"u": contexto.usuario},
+            )
+    _expirar_cookie(response)
+    response.status_code = status.HTTP_204_NO_CONTENT
+    return response
 
 
 @router.get("/usuario-actual")
@@ -303,4 +368,4 @@ def usuario_actual(
     if fila is None:
         raise ErrorAplicacion("SIN_AUTENTICACION", "La sesión no es válida.", 401)
     acceso, segundos = crear_token_acceso(contexto.usuario, contexto.organizacion, contexto.rol)
-    return _respuesta_sesion(dict(fila), acceso, "", segundos)
+    return _respuesta_sesion(dict(fila), acceso, segundos)

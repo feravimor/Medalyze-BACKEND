@@ -274,6 +274,16 @@ def cierre_sesion(
                 ),
                 {"u": contexto.usuario, "hash": hash_token_actualizacion(token)},
             )
+        else:
+            # Sin el token de renovación no se sabe cuál sesión es (el token de acceso no la identifica).
+            # Antes este caso devolvía 204 sin revocar nada y el token seguía vigente 7 días tras cerrar
+            # sesión; ahora se revocan todas las sesiones vigentes del usuario.
+            sesion.execute(
+                text(
+                    "UPDATE token_actualizacion_sesion SET fecha_hora_revocacion=now() WHERE identificador_usuario=:u AND fecha_hora_revocacion IS NULL"
+                ),
+                {"u": contexto.usuario},
+            )
     return Response(status_code=204)
 
 

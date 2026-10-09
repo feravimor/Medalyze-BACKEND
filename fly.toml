@@ -1,0 +1,42 @@
+app = "medalyze-api"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[deploy]
+  release_command = "alembic upgrade head"
+  release_command_timeout = "10m"
+
+[env]
+  APP_ENV = "production"
+  APP_VERSION = "0.1.0"
+  LOAD_DEMO_DATA = "false"
+  JWT_ACCESS_TTL_MIN = "15"
+  REFRESH_TTL_DAYS = "7"
+  REFRESH_COOKIE_NAME = "medalyze_refresh_token"
+  REFRESH_COOKIE_SAMESITE = "none"
+  REFRESH_COOKIE_SECURE = "true"
+  REFRESH_COOKIE_PATH = "/api/v1/autenticacion"
+  CORS_ORIGINS = "http://localhost:5173"
+  LOG_LEVEL = "INFO"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+  [[http_service.checks]]
+    grace_period = "15s"
+    interval = "30s"
+    method = "GET"
+    timeout = "5s"
+    path = "/api/v1/health"
+
+[[vm]]
+  memory = "512mb"
+  cpus = 1
+  memory_mb = 512

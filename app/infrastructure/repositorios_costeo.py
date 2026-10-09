@@ -4,6 +4,8 @@ from uuid import UUID
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.domain.costeo.periodicidad import equivalente_mensual
+
 
 class _RepositorioSQLAlchemy:
     def __init__(self, sesion: Session) -> None:
@@ -12,16 +14,13 @@ class _RepositorioSQLAlchemy:
 
 class RepositorioGastosSQLAlchemy(_RepositorioSQLAlchemy):
     def totales_mensuales(self, organizacion: UUID) -> tuple[Decimal, Decimal]:
-        fila = (
+        """Devuelve (fijos, variables) por mes, con la fracción exacta de cada periodicidad."""
+        filas = (
             self.sesion.execute(
                 text("""
-                    SELECT
-                      coalesce(sum(CASE WHEN g.categoria='FIJO'
-                        THEN g.importe_pagado_por_periodo*p.factor_mensual ELSE 0 END),0) fijos,
-                      coalesce(sum(CASE WHEN g.categoria='VARIABLE'
-                        THEN g.importe_pagado_por_periodo*p.factor_mensual ELSE 0 END),0) variables
+                    SELECT g.categoria::text categoria, g.importe_pagado_por_periodo importe,
+                           g.codigo_periodicidad periodicidad
                     FROM gasto_registrado g
-                    JOIN periodicidad_pago p ON p.codigo=g.codigo_periodicidad
                     WHERE g.identificador_organizacion=:organizacion AND g.activo
                       AND g.fecha_inicio_vigencia<=current_date
                       AND (g.fecha_fin_vigencia IS NULL OR g.fecha_fin_vigencia>=current_date)
@@ -29,19 +28,32 @@ class RepositorioGastosSQLAlchemy(_RepositorioSQLAlchemy):
                 {"organizacion": organizacion},
             )
             .mappings()
-            .one()
+            .all()
         )
-        return Decimal(fila["fijos"]), Decimal(fila["variables"])
+        fijos = Decimal(0)
+        variables = Decimal(0)
+        for fila in filas:
+            mensual = equivalente_mensual(Decimal(fila["importe"]), fila["periodicidad"])
+            if fila["categoria"] == "FIJO":
+                fijos += mensual
+            else:
+                variables += mensual
+        return fijos, variables
 
 
 class RepositorioEquiposSQLAlchemy(_RepositorioSQLAlchemy):
     def depreciacion_mensual(self, organizacion: UUID) -> Decimal:
+        """Suma la depreciación de los equipos ACTIVOS cuya vida útil sigue vigente (HU-09 CA1)."""
         valor = self.sesion.scalar(
             text("""
                 SELECT coalesce(sum(depreciacion_mensual),0)
                 FROM equipo_o_instalacion_depreciable
                 WHERE identificador_organizacion=:organizacion AND estado='ACTIVO'
-                  AND (fecha_alta_en_servicio IS NULL OR fecha_alta_en_servicio<=current_date)
+                  AND (fecha_alta_en_servicio IS NULL OR (
+                        fecha_alta_en_servicio<=current_date
+                        AND extract(year FROM age(current_date, fecha_alta_en_servicio))*12
+                          + extract(month FROM age(current_date, fecha_alta_en_servicio))
+                            < vida_util_anios*12))
             """),
             {"organizacion": organizacion},
         )

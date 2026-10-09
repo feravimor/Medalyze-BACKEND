@@ -77,8 +77,8 @@ def plantillas(
         SELECT p.clave,p.nombre,p.clave_especialidad especialidad,p.duracion_clinica,
                coalesce((SELECT jsonb_agg(m.nombre_generico ORDER BY m.orden) FROM material_sugerido_plantilla m WHERE m.identificador_plantilla=p.identificador),'[]'::jsonb) materiales_sugeridos,
                EXISTS (SELECT 1 FROM tratamiento t WHERE t.identificador_organizacion=:o AND t.nombre=p.nombre) agregado
-        FROM plantilla_tratamiento p WHERE p.activa AND (:especialidad IS NULL OR p.clave_especialidad=:especialidad)
-          AND (NOT :mis_areas OR EXISTS (SELECT 1 FROM especialidad_seleccionada_por_usuario eu JOIN especialidad_odontologica e ON e.identificador=eu.identificador_especialidad WHERE eu.identificador_usuario=:u AND e.clave=p.clave_especialidad))
+        FROM plantilla_tratamiento p WHERE p.activa AND (CAST(:especialidad AS text) IS NULL OR p.clave_especialidad=CAST(:especialidad AS text))
+          AND (NOT CAST(:mis_areas AS boolean) OR EXISTS (SELECT 1 FROM especialidad_seleccionada_por_usuario eu JOIN especialidad_odontologica e ON e.identificador=eu.identificador_especialidad WHERE eu.identificador_usuario=:u AND e.clave=p.clave_especialidad))
         ORDER BY p.clave LIMIT 100
     """),
                 {
@@ -178,14 +178,15 @@ def listar_tratamientos(
                CASE WHEN h.identificador IS NULL THEN NULL ELSE jsonb_build_object('costo_total',h.costo_total,'precio_sugerido',h.precio_sugerido,'margen_porcentaje',h.margen_porcentaje) END ultimo_resultado
         FROM tratamiento t LEFT JOIN version_configuracion_tratamiento v ON v.identificador=t.identificador_version_vigente
         LEFT JOIN hoja_costos_tratamiento h ON h.identificador=t.identificador_hoja_vigente
-        WHERE t.identificador_organizacion=:o AND (:archivados OR t.estado<>'ARCHIVADO')
-          AND (:estado IS NULL OR t.estado::text=:estado) AND (:busqueda='' OR t.nombre ILIKE '%'||:busqueda||'%')
+        WHERE t.identificador_organizacion=:o AND (CAST(:archivados AS boolean) OR t.estado<>'ARCHIVADO')
+          AND (CAST(:estado AS text) IS NULL OR t.estado::text=CAST(:estado AS text))
+          AND (CAST(:busqueda AS text)='' OR t.nombre ILIKE '%'||CAST(:busqueda AS text)||'%')
         ORDER BY t.fecha_hora_creacion DESC LIMIT :limite
     """),
                 {
                     "o": contexto.organizacion,
                     "archivados": archivados,
-                    "estado": estado,
+                    "estado": estado or None,  # "" (filtro vacío del cliente) = sin filtro
                     "busqueda": busqueda,
                     "limite": limite,
                 },
@@ -210,7 +211,14 @@ def crear_tratamiento(
     )
     if repetida:
         return repetida[1]
-    reservar(sesion, contexto, "crear_tratamiento", idempotency_key, cuerpo)
+    if not reservar(sesion, contexto, "crear_tratamiento", idempotency_key, cuerpo):
+        # Otra solicitud con la misma clave ganó la carrera (doble clic / reintento): repetir su respuesta.
+        repetida = buscar_respuesta(sesion, contexto, "crear_tratamiento", idempotency_key, cuerpo)
+        if repetida:
+            return repetida[1]
+        raise ErrorAplicacion(
+            "CONFLICTO_REVISION", "La operación con esta clave sigue en proceso.", 409
+        )
     tratamiento = sesion.scalar(
         text(
             "INSERT INTO tratamiento (identificador_organizacion,nombre,especialidad) VALUES (:o,:nombre,:especialidad) RETURNING identificador"
@@ -414,9 +422,15 @@ def _cambiar_estado(
 ) -> dict:
     fila = sesion.scalar(
         text(
-            "UPDATE tratamiento SET estado=:estado,fecha_hora_archivado=CASE WHEN :estado='ARCHIVADO' THEN now() ELSE NULL END,revision=revision+1 WHERE identificador=:id AND identificador_organizacion=:o AND revision=:revision RETURNING identificador"
+            "UPDATE tratamiento SET estado=CAST(:estado AS estado_tratamiento),fecha_hora_archivado=CASE WHEN :archivar THEN now() ELSE NULL END,revision=revision+1 WHERE identificador=:id AND identificador_organizacion=:o AND revision=:revision RETURNING identificador"
         ),
-        {"estado": estado, "id": identificador, "o": contexto.organizacion, "revision": revision},
+        {
+            "estado": estado,
+            "archivar": estado == "ARCHIVADO",
+            "id": identificador,
+            "o": contexto.organizacion,
+            "revision": revision,
+        },
     )
     if fila is None:
         actual = sesion.scalar(
@@ -458,7 +472,10 @@ def restaurar_tratamiento(
     )
     return _cambiar_estado(
         identificador,
-        "CALCULADO" if tiene_hoja else "BORRADOR",
+        # Mientras está ARCHIVADO el tratamiento queda fuera de la marca CAMBIOS_POR_REVISAR (que solo
+        # se aplica a los CALCULADO). Al restaurar no se puede saber si el precio sigue vigente, así
+        # que se pide revisarlo en vez de mostrarlo como actual.
+        "CAMBIOS_POR_REVISAR" if tiene_hoja else "BORRADOR",
         exigir_revision(if_match),
         contexto,
         sesion,

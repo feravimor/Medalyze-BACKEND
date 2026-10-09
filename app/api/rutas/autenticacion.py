@@ -185,6 +185,8 @@ def renovacion(
     entrada: RenovacionEntrada, sesion: Session = Depends(obtener_sesion)
 ) -> dict:
     token_hash = hash_token_actualizacion(entrada.token_actualizacion)
+    reutilizado = False
+    respuesta: dict | None = None
     with sesion.begin():
         token = (
             (
@@ -201,20 +203,22 @@ def renovacion(
         if token is None or token["fecha_hora_expiracion"] <= datetime.now(UTC):
             raise ErrorAplicacion("TOKEN_VENCIDO", "La sesión terminó.", 401)
         if token["fecha_hora_revocacion"] is not None:
+            # Reutilización de un token ya rotado: se revoca TODA la familia del usuario.
+            # El error se lanza DESPUÉS de salir de este bloque. Si se lanzara aquí dentro, el
+            # rollback desharía esta revocación y la defensa no tendría ningún efecto.
             sesion.execute(
                 text(
                     "UPDATE token_actualizacion_sesion SET fecha_hora_revocacion=coalesce(fecha_hora_revocacion,now()) WHERE identificador_usuario=:u"
                 ),
                 {"u": token["identificador_usuario"]},
             )
-            raise ErrorAplicacion(
-                "SIN_AUTENTICACION", "Se detectó reutilización de una sesión revocada.", 401
-            )
-        fijar_contexto_organizacion(sesion, token["identificador_organizacion"])
-        fila = (
-            (
-                sesion.execute(
-                    text("""
+            reutilizado = True
+        else:
+            fijar_contexto_organizacion(sesion, token["identificador_organizacion"])
+            fila = (
+                (
+                    sesion.execute(
+                        text("""
             SELECT u.identificador usuario_id,u.nombre_completo,u.correo,m.rol::text rol,
                    o.identificador organizacion_id,o.nombre_comercial,o.codigo_moneda,o.multiplo_redondeo,
                    o.espaciado_por_defecto,o.revision organizacion_revision,coalesce(p.completado,false) onboarding_completado
@@ -223,26 +227,35 @@ def renovacion(
             LEFT JOIN preferencias_onboarding_usuario p ON p.identificador_usuario=u.identificador
             WHERE u.identificador=:u AND o.identificador=:o AND m.activa
         """),
-                    {"u": token["identificador_usuario"], "o": token["identificador_organizacion"]},
+                        {
+                            "u": token["identificador_usuario"],
+                            "o": token["identificador_organizacion"],
+                        },
+                    )
                 )
+                .mappings()
+                .one()
             )
-            .mappings()
-            .one()
+            nuevo_acceso, nuevo_refresh, segundos = _crear_sesion(
+                sesion, fila["usuario_id"], fila["organizacion_id"], fila["rol"]
+            )
+            nuevo_id = sesion.scalar(
+                text("SELECT identificador FROM token_actualizacion_sesion WHERE hash_token=:hash"),
+                {"hash": hash_token_actualizacion(nuevo_refresh)},
+            )
+            sesion.execute(
+                text(
+                    "UPDATE token_actualizacion_sesion SET fecha_hora_revocacion=now(), reemplazado_por=:nuevo WHERE identificador=:id"
+                ),
+                {"nuevo": nuevo_id, "id": token["identificador"]},
+            )
+            respuesta = _respuesta_sesion(dict(fila), nuevo_acceso, nuevo_refresh, segundos)
+    if reutilizado:
+        raise ErrorAplicacion(
+            "SIN_AUTENTICACION", "Se detectó reutilización de una sesión revocada.", 401
         )
-        nuevo_acceso, nuevo_refresh, segundos = _crear_sesion(
-            sesion, fila["usuario_id"], fila["organizacion_id"], fila["rol"]
-        )
-        nuevo_id = sesion.scalar(
-            text("SELECT identificador FROM token_actualizacion_sesion WHERE hash_token=:hash"),
-            {"hash": hash_token_actualizacion(nuevo_refresh)},
-        )
-        sesion.execute(
-            text(
-                "UPDATE token_actualizacion_sesion SET fecha_hora_revocacion=now(), reemplazado_por=:nuevo WHERE identificador=:id"
-            ),
-            {"nuevo": nuevo_id, "id": token["identificador"]},
-        )
-    return _respuesta_sesion(dict(fila), nuevo_acceso, nuevo_refresh, segundos)
+    assert respuesta is not None
+    return respuesta
 
 
 @router.post("/cierre-sesion", status_code=status.HTTP_204_NO_CONTENT)

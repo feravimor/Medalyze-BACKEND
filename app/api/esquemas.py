@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
 
 class Esquema(BaseModel):
@@ -48,8 +48,8 @@ class OnboardingActualizar(Esquema):
 
 class PerfilCapacidadEntrada(Esquema):
     dias_por_semana: int = Field(ge=1, le=7)
-    horas_por_dia: Decimal = Field(gt=0, le=24)
-    porcentaje_ocupacion: Decimal = Field(ge=0, le=100)
+    horas_por_dia: Decimal = Field(ge=Decimal("0.01"), le=24, decimal_places=2)
+    porcentaje_ocupacion: Decimal = Field(ge=0, le=100, decimal_places=2)
     ocupacion_confirmada: bool = False
 
 
@@ -57,7 +57,9 @@ class GastoEntrada(Esquema):
     nombre: str = Field(min_length=1, max_length=160)
     categoria: Literal["FIJO", "VARIABLE"]
     importe_pagado_por_periodo: Decimal = Field(ge=0)
-    codigo_periodicidad: str = "MENSUAL"
+    codigo_periodicidad: Literal[
+        "SEMANAL", "QUINCENAL", "MENSUAL", "BIMESTRAL", "TRIMESTRAL", "SEMESTRAL", "ANUAL"
+    ] = "MENSUAL"
     fecha_inicio_vigencia: date
     activo: bool = True
 
@@ -70,14 +72,12 @@ class EquipoEntrada(Esquema):
     fecha_alta_en_servicio: date | None = None
     estado: Literal["ACTIVO", "ARCHIVADO", "BAJA"] = "ACTIVO"
 
-    @field_validator("valor_residual")
-    @classmethod
-    def validar_residual(cls, valor: Decimal) -> Decimal:
-        return valor
-
-    def comprobar_relaciones(self) -> None:
+    @model_validator(mode="after")
+    def validar_residual_menor_al_precio(self) -> "EquipoEntrada":
+        # Antes era un método aparte que lanzaba ValueError (HTTP 500); ahora responde 422.
         if self.valor_residual >= self.precio_adquisicion:
             raise ValueError("El valor de rescate debe ser menor que el costo del equipo.")
+        return self
 
 
 class InsumoEntrada(Esquema):

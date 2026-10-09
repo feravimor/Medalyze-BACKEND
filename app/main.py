@@ -6,6 +6,8 @@ from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from psycopg import errors as errores_pg
+from sqlalchemy.exc import DataError, IntegrityError
 
 from app.api.router import router
 from app.core.config import obtener_configuracion
@@ -75,6 +77,35 @@ async def manejar_validacion(request: Request, error: RequestValidationError) ->
             }
         },
     )
+
+
+def _error_validacion(request: Request, mensaje: str) -> JSONResponse:
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detalle": {
+                "codigo": "ERROR_VALIDACION",
+                "mensaje": mensaje,
+                "campos": [],
+                "bloqueos": [],
+                "request_id": getattr(request.state, "request_id", None),
+            }
+        },
+    )
+
+
+@app.exception_handler(IntegrityError)
+async def manejar_integridad(request: Request, error: IntegrityError) -> JSONResponse:
+    if isinstance(error.orig, errores_pg.ForeignKeyViolation):
+        return _error_validacion(request, "Una de las referencias enviadas no existe.")
+    if isinstance(error.orig, (errores_pg.CheckViolation, errores_pg.NotNullViolation)):
+        return _error_validacion(request, "Revisa los datos enviados.")
+    return await manejar_error_interno(request, error)
+
+
+@app.exception_handler(DataError)
+async def manejar_dato_invalido(request: Request, error: DataError) -> JSONResponse:
+    return _error_validacion(request, "Revisa los datos enviados.")
 
 
 @app.exception_handler(Exception)

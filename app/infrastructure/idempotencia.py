@@ -60,12 +60,22 @@ def reservar(
     operacion: str,
     clave: str,
     cuerpo: dict[str, Any],
-) -> None:
-    sesion.execute(
+) -> bool:
+    """Reserva la clave. Devuelve False si OTRA solicitud ya la tiene (vigente).
+
+    ON CONFLICT espera a que la otra transacción termine: si confirmó, el llamador debe devolver
+    su respuesta guardada; si falló, esta reserva sí se concreta. Una fila ya expirada se reutiliza.
+    """
+    resultado = sesion.execute(
         text("""
             INSERT INTO solicitud_idempotente
               (identificador_organizacion, identificador_usuario, operacion, clave, hash_cuerpo)
             VALUES (:org, :usuario, :operacion, :clave, :hash)
+            ON CONFLICT (identificador_organizacion, identificador_usuario, operacion, clave)
+            DO UPDATE SET hash_cuerpo = EXCLUDED.hash_cuerpo, estado_http = NULL, respuesta = NULL,
+                          fecha_hora_creacion = now(),
+                          fecha_hora_expiracion = now() + interval '24 hours'
+            WHERE solicitud_idempotente.fecha_hora_expiracion <= now()
         """),
         {
             "org": contexto.organizacion,
@@ -75,6 +85,7 @@ def reservar(
             "hash": hash_cuerpo(cuerpo),
         },
     )
+    return bool(resultado.rowcount == 1)  # type: ignore[attr-defined]
 
 
 def completar(

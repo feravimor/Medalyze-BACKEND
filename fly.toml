@@ -18,7 +18,7 @@ primary_region = "iad"
   REFRESH_COOKIE_SAMESITE = "none"
   REFRESH_COOKIE_SECURE = "true"
   REFRESH_COOKIE_PATH = "/api/v1/autenticacion"
-  CORS_ORIGINS = "http://localhost:5173"
+  CORS_ORIGINS = "http://localhost:5173,https://medalyze.pages.dev"
   LOG_LEVEL = "INFO"
 
 [http_service]

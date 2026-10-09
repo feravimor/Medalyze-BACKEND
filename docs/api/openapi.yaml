@@ -2780,6 +2780,15 @@ paths:
               example:
                 detalle:
                   codigo: CORREO_YA_REGISTRADO
+        '422':
+          description: Validación o cálculo bloqueado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
+              example:
+                detalle:
+                  codigo: ERROR_VALIDACION
         '428':
           description: Revisión requerida
           content:
@@ -4497,6 +4506,10 @@ components:
         revision:
           type: integer
           minimum: 0
+        correo:
+          type: string
+          format: email
+          readOnly: true
       required:
       - identificador
       - nombre_para_mostrar
@@ -4972,14 +4985,20 @@ components:
           examples:
           - '70.83'
         minutos_disponibles:
-          type: integer
+          oneOf:
+          - type: integer
+          - type: 'null'
         minutos_efectivos:
-          type: integer
+          oneOf:
+          - type: integer
+          - type: 'null'
         costo_por_minuto:
-          type: string
-          pattern: ^-?\d+(\.\d{1,10})?$
-          examples:
-          - '70.83'
+          oneOf:
+          - type: string
+            pattern: ^-?\d+(\.\d{1,10})?$
+            examples:
+            - '70.83'
+          - type: 'null'
         aportes:
           type: array
           items:
@@ -5137,10 +5156,8 @@ components:
           examples:
           - '70.83'
         cantidad_contenida:
-          type: string
-          pattern: ^-?\d+(\.\d{1,10})?$
-          examples:
-          - '70.83'
+          type: number
+          exclusiveMinimum: 0
         costo_unitario:
           type: string
           pattern: ^-?\d+(\.\d{1,10})?$
@@ -5205,18 +5222,25 @@ components:
           type: string
           format: date
         consumo_materiales:
-          type: string
-          pattern: ^-?\d+(\.\d{1,10})?$
-          examples:
-          - '70.83'
+          oneOf:
+          - type: string
+            pattern: ^-?\d+(\.\d{1,10})?$
+            examples:
+            - '70.83'
+          - type: 'null'
         tratamientos_atendidos:
-          type: integer
-          minimum: 0
+          oneOf:
+          - type: integer
+            minimum: 0
+          - type: 'null'
         procedencia:
-          type: string
+          type:
+          - string
+          - 'null'
           enum:
           - ESTE_MES
           - PERIODO_ANTERIOR
+          - null
         notas:
           oneOf:
           - type: string
@@ -5238,6 +5262,18 @@ components:
         revision:
           type: integer
           minimum: 0
+        tipo_movimiento:
+          type: string
+          enum:
+          - CAPTURA_INICIAL
+          - CORRECCION
+          - ANULACION
+          - RESTAURACION
+          readOnly: true
+        identificador_version:
+          type: string
+          format: uuid
+          readOnly: true
       required:
       - identificador
       - mes
@@ -5395,6 +5431,9 @@ components:
           type: number
           minimum: 0
           maximum: 100
+        nombre:
+          type: string
+          readOnly: true
       required:
       - identificador_insumo
       - cantidad
@@ -5512,6 +5551,42 @@ components:
       - ajuste_porcentaje
       - estado
       - revision
+    TratamientoResumen:
+      type: object
+      additionalProperties: false
+      properties:
+        identificador:
+          type: string
+          format: uuid
+        nombre:
+          type: string
+        especialidad:
+          type: string
+        duracion_clinica:
+          type: integer
+          minimum: 1
+          maximum: 600
+        estado:
+          type: string
+          enum:
+          - BORRADOR
+          - CALCULADO
+          - CAMBIOS_POR_REVISAR
+          - ARCHIVADO
+        revision:
+          type: integer
+          minimum: 0
+        ultimo_resultado:
+          oneOf:
+          - $ref: '#/components/schemas/ResultadoCosto'
+          - type: 'null'
+      required:
+      - identificador
+      - nombre
+      - especialidad
+      - duracion_clinica
+      - estado
+      - revision
     PaginacionTratamientos:
       type: object
       additionalProperties: false
@@ -5519,7 +5594,7 @@ components:
         elementos:
           type: array
           items:
-            $ref: '#/components/schemas/Tratamiento'
+            $ref: '#/components/schemas/TratamientoResumen'
         siguiente_cursor:
           oneOf:
           - type: string
@@ -5715,6 +5790,35 @@ components:
       - resultado
       - metodo_materiales
       - vigente
+    HojaReciente:
+      type: object
+      additionalProperties: false
+      properties:
+        identificador:
+          type: string
+          format: uuid
+        fecha_creacion:
+          type: string
+          format: date-time
+        resultado:
+          $ref: '#/components/schemas/ResultadoCosto'
+        metodo_materiales:
+          type: string
+        vigente:
+          type: boolean
+        identificador_tratamiento:
+          type: string
+          format: uuid
+        nombre:
+          type: string
+      required:
+      - identificador
+      - fecha_creacion
+      - resultado
+      - metodo_materiales
+      - vigente
+      - identificador_tratamiento
+      - nombre
     HojaCostos:
       type: object
       additionalProperties: false
@@ -5813,7 +5917,7 @@ components:
           type: array
           maxItems: 5
           items:
-            $ref: '#/components/schemas/HojaCostosResumen'
+            $ref: '#/components/schemas/HojaReciente'
       required:
       - siguiente_paso
       - kpi

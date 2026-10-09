@@ -187,8 +187,8 @@ def test_gasto_semestral_exacto_no_sube_el_precio_un_multiplo(cliente, admin, co
     r = cliente.post(f"/api/v1/tratamientos/{t}/calculos", json={"revision_tratamiento": 0},
                      headers={**h, "If-Match": "0", "Idempotency-Key": f"clave-{uuid.uuid4().hex}"})
     assert r.status_code == 201
-    assert Decimal(r.json()["precio_sugerido"]) == Decimal("150")
-    assert Decimal(r.json()["pool_mensual"]) == Decimal("7800")
+    assert Decimal(r.json()["resultado"]["precio_sugerido"]) == Decimal("150")
+    assert Decimal(r.json()["datos_aplicados"]["pool_mensual"]) == Decimal("7800")
 
 
 def test_un_equipo_con_vida_util_agotada_no_suma_depreciacion(cliente, admin, consultorio) -> None:

@@ -58,19 +58,13 @@ def actualizar_perfil(
     sesion: Session = Depends(obtener_sesion_protegida),
 ) -> dict:
     revision = exigir_revision(if_match)
-    if entrada.nombre_para_mostrar is not None:
-        actualizado = sesion.scalar(
-            text(
-                "UPDATE usuario_plataforma SET nombre_completo=:nombre,revision=revision+1 WHERE identificador=:u AND revision=:revision RETURNING revision"
-            ),
-            {"nombre": entrada.nombre_para_mostrar, "u": contexto.usuario, "revision": revision},
-        )
-    else:
-        actual = sesion.scalar(
-            text("SELECT revision FROM usuario_plataforma WHERE identificador=:u"),
-            {"u": contexto.usuario},
-        )
-        actualizado = actual if actual == revision else None
+    # Toda edición del perfil (nombre o especialidades) sube la revisión, para detectar ediciones simultáneas.
+    actualizado = sesion.scalar(
+        text(
+            "UPDATE usuario_plataforma SET nombre_completo=coalesce(CAST(:nombre AS text),nombre_completo),revision=revision+1 WHERE identificador=:u AND revision=:revision RETURNING revision"
+        ),
+        {"nombre": entrada.nombre_para_mostrar, "u": contexto.usuario, "revision": revision},
+    )
     if actualizado is None:
         actual = sesion.scalar(
             text("SELECT revision FROM usuario_plataforma WHERE identificador=:u"),
@@ -84,7 +78,7 @@ def actualizar_perfil(
             ),
             {"u": contexto.usuario},
         )
-        for especialidad in entrada.especialidades:
+        for especialidad in dict.fromkeys(entrada.especialidades):  # sin repetidas, conservando el orden
             sesion.execute(
                 text(
                     "INSERT INTO especialidad_seleccionada_por_usuario (identificador_usuario,identificador_especialidad) VALUES (:u,:e)"

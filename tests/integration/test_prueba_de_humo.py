@@ -54,6 +54,16 @@ def d(valor: Any) -> Decimal:
     return Decimal(str(valor))
 
 
+def _requiere_las_pruebas_de_postgres() -> None:
+    """Las verificaciones finales revisan lo que registraron las pruebas anteriores.
+
+    Sin ``MEDALYZE_TEST_POSTGRES=1`` esas pruebas se omiten y no registran nada, así que revisar la
+    cobertura fallaría (0 de 56) y revisar el contrato pasaría en vacío. En ese caso se omiten también.
+    """
+    if os.getenv("MEDALYZE_TEST_POSTGRES") != "1":
+        pytest.skip("Las pruebas PostgreSQL se ejecutan con MEDALYZE_TEST_POSTGRES=1.")
+
+
 # --------------------------------------------------------------------------- fixtures
 
 
@@ -888,11 +898,13 @@ def test_un_token_alterado_o_ajeno_se_rechaza(cliente: TestClient, A: Api) -> No
 
 
 def test_las_56_operaciones_del_contrato_se_ejercitaron_con_exito() -> None:
+    _requiere_las_pruebas_de_postgres()
     faltantes = CONTRATO.sin_ejercitar()
     assert not faltantes, f"{len(faltantes)} de {len(CONTRATO.operaciones)} operaciones sin una llamada exitosa: {faltantes}"
 
 
 def test_las_respuestas_cumplen_el_contrato_openapi() -> None:
+    _requiere_las_pruebas_de_postgres()
     unicos = sorted(set(CONTRATO.incumplimientos))
     if os.getenv("MEDALYZE_VOLCAR_INCUMPLIMIENTOS"):
         Path(os.environ["MEDALYZE_VOLCAR_INCUMPLIMIENTOS"]).write_text("\n".join(unicos) + "\n", encoding="utf-8")
@@ -900,6 +912,7 @@ def test_las_respuestas_cumplen_el_contrato_openapi() -> None:
 
 
 def test_los_estados_devueltos_estan_documentados_en_el_contrato() -> None:
+    _requiere_las_pruebas_de_postgres()
     unicos = sorted(set(CONTRATO.no_documentados))
     if os.getenv("MEDALYZE_VOLCAR_INCUMPLIMIENTOS"):
         Path(os.environ["MEDALYZE_VOLCAR_INCUMPLIMIENTOS"] + ".estados").write_text("\n".join(unicos) + "\n", encoding="utf-8")

@@ -54,3 +54,11 @@ def test_espaciado_cero_se_conserva() -> None:
     resultado = calcular_costeo(caso_base(espaciado=0))
     assert resultado.completo
     assert resultado.minutos_imputados == 30
+
+
+def test_espaciado_nulo_bloquea_sin_predeterminado() -> None:
+    resultado = calcular_costeo(caso_base(espaciado=None))
+    assert not resultado.completo
+    assert any(
+        b.codigo.value == "SIN_ESPACIADO_PREDETERMINADO" for b in resultado.bloqueos
+    )

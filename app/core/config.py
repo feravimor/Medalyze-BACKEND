@@ -14,6 +14,7 @@ class Configuracion(BaseSettings):
     app_env: str = "local"
     app_version: str = "dev"
     database_url: str = "postgresql+psycopg://medalyze:medalyze@localhost:5432/medalyze"
+    load_demo_data: bool = False
     jwt_secret: str = Field(default=SECRETO_DE_DESARROLLO, min_length=32)
     jwt_access_ttl_min: int = Field(default=15, ge=1, le=60)
     refresh_ttl_days: int = Field(default=7, ge=1, le=30)
@@ -48,6 +49,8 @@ class Configuracion(BaseSettings):
             raise ValueError("Una cookie SameSite=None debe usar Secure.")
         if self.app_env.lower() in {"produccion", "production"} and not self.refresh_cookie_secure:
             raise ValueError("REFRESH_COOKIE_SECURE debe activarse en producción.")
+        if self.app_env.lower() in {"produccion", "production"} and self.load_demo_data:
+            raise ValueError("LOAD_DEMO_DATA debe estar desactivada en producción.")
         return self
 
 

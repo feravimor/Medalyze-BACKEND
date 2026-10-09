@@ -17,6 +17,19 @@ docker compose up --build
 - Salud: `http://localhost:8000/api/v1/health`
 - Disponibilidad: `http://localhost:8000/api/v1/ready`
 
+La migración inicial carga únicamente catálogos técnicos. No carga plantillas de
+tratamiento ni las expone como contenido clínico aprobado. Para una demostración
+local, después de aplicar las migraciones, carga explícitamente las plantillas
+sintéticas con:
+
+```bash
+LOAD_DEMO_DATA=true python scripts/cargar_datos_demo.py
+```
+
+`LOAD_DEMO_DATA` vale `false` por defecto y la configuración rechaza activarlo
+con `APP_ENV=production`. `db/seed_demo.sql` contiene datos no aprobados,
+incluida la plantilla de ejemplo “Profilaxis dental”.
+
 El contenedor de API ejecuta `alembic upgrade head` antes de iniciar. Para reconstruir la base:
 
 ```bash

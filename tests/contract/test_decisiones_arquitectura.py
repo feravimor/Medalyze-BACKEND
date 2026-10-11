@@ -22,3 +22,15 @@ def test_suscripcion_no_inventa_endpoints_backend() -> None:
 def test_migraciones_iniciales_existen() -> None:
     assert Path("migrations/versions/0001_esquema_inicial.py").is_file()
     assert Path("migrations/versions/0002_catalogos_iniciales.py").is_file()
+
+
+def test_seed_tecnico_no_carga_plantillas_demo() -> None:
+    seed = Path("db/seed.sql").read_text(encoding="utf-8")
+    seed_demo = Path("db/seed_demo.sql").read_text(encoding="utf-8")
+    migracion = Path("migrations/versions/0002_catalogos_iniciales.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert "plantilla_tratamiento" not in seed
+    assert "Tratamiento de referencia" in seed_demo
+    assert "seed_demo.sql" not in migracion

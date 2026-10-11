@@ -5,7 +5,13 @@ from app.core.config import SECRETO_DE_DESARROLLO, Configuracion
 
 
 def _crear(monkeypatch: pytest.MonkeyPatch, **entorno: str) -> Configuracion:
-    for clave in ("CORS_ORIGINS", "APP_ENV", "JWT_SECRET"):
+    for clave in (
+        "CORS_ORIGINS",
+        "APP_ENV",
+        "JWT_SECRET",
+        "REFRESH_COOKIE_SECURE",
+        "LOAD_DEMO_DATA",
+    ):
         monkeypatch.delenv(clave, raising=False)
     for clave, valor in entorno.items():
         monkeypatch.setenv(clave, valor)
@@ -38,5 +44,29 @@ def test_secreto_publico_se_rechaza_fuera_de_local(monkeypatch: pytest.MonkeyPat
 
 
 def test_secreto_propio_se_acepta_en_produccion(monkeypatch: pytest.MonkeyPatch) -> None:
-    config = _crear(monkeypatch, APP_ENV="production", JWT_SECRET="x" * 40)
+    config = _crear(
+        monkeypatch,
+        APP_ENV="production",
+        JWT_SECRET="x" * 40,
+        REFRESH_COOKIE_SECURE="true",
+    )
     assert config.jwt_secret == "x" * 40
+
+
+def test_datos_demo_se_desactivan_por_defecto(monkeypatch: pytest.MonkeyPatch) -> None:
+    assert _crear(monkeypatch).load_demo_data is False
+
+
+def test_produccion_rechaza_datos_demo(monkeypatch: pytest.MonkeyPatch) -> None:
+    with pytest.raises(ValidationError, match="LOAD_DEMO_DATA"):
+        _crear(
+            monkeypatch,
+            APP_ENV="production",
+            JWT_SECRET="x" * 40,
+            REFRESH_COOKIE_SECURE="true",
+            LOAD_DEMO_DATA="true",
+        )
+
+
+def test_desarrollo_puede_habilitar_datos_demo(monkeypatch: pytest.MonkeyPatch) -> None:
+    assert _crear(monkeypatch, LOAD_DEMO_DATA="true").load_demo_data is True

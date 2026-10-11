@@ -16,7 +16,7 @@ class EntradaCosteo:
     horas_por_dia: Decimal | None
     porcentaje_ocupacion: Decimal | None
     duracion_clinica: int
-    espaciado: int
+    espaciado: int | None
     metodo_materiales: str | None
     materiales_generales: Decimal | None
     materiales_especiales: Decimal = CERO
@@ -77,7 +77,16 @@ def _validar(entrada: EntradaCosteo) -> list[Bloqueo]:
                 "duracion_clinica",
             )
         )
-    if not 0 <= entrada.espaciado <= 15:
+    if entrada.espaciado is None:
+        bloqueos.append(
+            Bloqueo(
+                CodigoBloqueo.SIN_ESPACIADO_PREDETERMINADO,
+                5,
+                "Configura el tiempo predeterminado del consultorio o elige un espaciado para este tratamiento",
+                "espaciado",
+            )
+        )
+    elif not 0 <= entrada.espaciado <= 15:
         bloqueos.append(
             Bloqueo(
                 CodigoBloqueo.ESPACIADO_FUERA_RANGO,
@@ -171,6 +180,7 @@ def calcular_costeo(entrada: EntradaCosteo) -> ResultadoCosteo:
     assert efectivos is not None and efectivos > 0
     assert entrada.materiales_generales is not None
     costo_minuto = pool / Decimal(efectivos)
+    assert entrada.espaciado is not None
     minutos_imputados = entrada.duracion_clinica + entrada.espaciado
     costo_tiempo = Decimal(minutos_imputados) * costo_minuto
     costo_total = costo_tiempo + entrada.materiales_generales + entrada.materiales_especiales

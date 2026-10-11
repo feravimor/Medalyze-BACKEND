@@ -95,7 +95,6 @@ def _registrar(cliente: TestClient, nombre: str) -> Api:
     api.token = cuerpo["token_acceso"]
     api.correo = correo  # type: ignore[attr-defined]
     api.org = cuerpo["organizacion"]["identificador"]  # type: ignore[attr-defined]
-    api.refresh = cuerpo["token_actualizacion"]  # type: ignore[attr-defined]
     return api
 
 
@@ -162,28 +161,38 @@ def test_inicio_de_sesion_renovacion_y_cierre(A: Api) -> None:
         sesion=False,
         estado=200,
     )
-    refresco = r.json()["token_actualizacion"]
     assert A(
         "POST",
         "/autenticacion/inicio-sesion",
         json={"correo": A.correo, "contrasena": "contrasena-equivocada"},  # type: ignore[attr-defined]
         sesion=False,
     ).status_code == 401
-    r = A("POST", "/autenticacion/renovacion", json={"token_actualizacion": refresco}, sesion=False, estado=200)
-    nuevo = r.json()["token_actualizacion"]
-    assert nuevo != refresco
-    A("POST", "/autenticacion/cierre-sesion", json={"token_actualizacion": nuevo}, estado=204)
+    r = A("POST", "/autenticacion/renovacion", json={}, sesion=False, estado=200)
+    assert "token_acceso" in r.json()
+    A("POST", "/autenticacion/cierre-sesion", json={}, estado=204)
     # El token cerrado ya no sirve para renovar.
-    assert A("POST", "/autenticacion/renovacion", json={"token_actualizacion": nuevo}, sesion=False).status_code == 401
+    assert A("POST", "/autenticacion/renovacion", json={}, sesion=False).status_code == 401
 
 
-def test_cerrar_sesion_sin_enviar_el_token_de_renovacion_tambien_lo_revoca(A: Api) -> None:
-    """El frontend llama al cierre de sesión sin cuerpo: antes devolvía 204 sin revocar y el token seguía vigente."""
-    r = A("POST", "/autenticacion/inicio-sesion", json={"correo": A.correo, "contrasena": CONTRASENA}, sesion=False, estado=200).json()  # type: ignore[attr-defined]
-    sesion_nueva = Api(A.cliente, CONTRATO, r["token_acceso"])
-    sesion_nueva("POST", "/autenticacion/cierre-sesion", estado=204)
-    despues = A("POST", "/autenticacion/renovacion", json={"token_actualizacion": r["token_actualizacion"]}, sesion=False)
-    assert despues.status_code == 401, f"el token de renovación siguió funcionando tras cerrar sesión ({despues.status_code})"
+def test_cerrar_sesion_sin_cookie_ni_cuerpo_revoca_todas_las_sesiones_del_usuario(A: Api) -> None:
+    """Otro dispositivo, que no conserva la cookie, cierra sesión solo con su token de acceso.
+
+    Antes devolvía 204 sin revocar nada y la sesión del navegador seguía vigente 7 días.
+    """
+    from app.core.config import obtener_configuracion
+
+    cookie = obtener_configuracion().refresh_cookie_name
+    navegador = TestClient(A.cliente.app, raise_server_exceptions=False)  # type: ignore[attr-defined]
+    otro = TestClient(A.cliente.app, raise_server_exceptions=False)  # type: ignore[attr-defined]
+    datos = {"correo": A.correo, "contrasena": CONTRASENA}  # type: ignore[attr-defined]
+    assert navegador.post("/api/v1/autenticacion/inicio-sesion", json=datos).status_code == 200
+    assert navegador.cookies.get(cookie)
+    acceso = otro.post("/api/v1/autenticacion/inicio-sesion", json=datos).json()["token_acceso"]
+    otro.cookies.clear()  # este dispositivo no tiene la cookie
+    cierre = otro.post("/api/v1/autenticacion/cierre-sesion", headers={"Authorization": f"Bearer {acceso}"})
+    assert cierre.status_code == 204
+    despues = navegador.post("/api/v1/autenticacion/renovacion", json={})
+    assert despues.status_code == 401, f"la sesión del navegador siguió vigente tras cerrar sesión ({despues.status_code})"
 
 
 def test_los_mensajes_de_validacion_llegan_en_espanol(A: Api) -> None:
@@ -883,6 +892,10 @@ def test_toda_operacion_protegida_exige_sesion(cliente: TestClient, metodo: str,
     api = Api(cliente, CONTRATO)
     ruta = re.sub(r"\{[^}]+\}", "00000000-0000-4000-8000-000000000000", plantilla)
     r = api(metodo, ruta, json={} if metodo in ("POST", "PUT", "PATCH") else None, sesion=False)
+    if plantilla == "/autenticacion/cierre-sesion":
+        # Esta operación también autentica mediante la cookie HttpOnly, que el cliente conserva.
+        assert r.status_code in (401, 204)
+        return
     assert r.status_code == 401, f"{metodo} {plantilla} sin sesión devolvió {r.status_code}"
     assert r.json()["detalle"]["codigo"] in {"SIN_AUTENTICACION", "TOKEN_VENCIDO"}
 

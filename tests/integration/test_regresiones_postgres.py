@@ -50,7 +50,6 @@ def consultorio(cliente):
     return {
         "org": cuerpo["organizacion"]["identificador"],
         "encabezado": {"Authorization": f"Bearer {cuerpo['token_acceso']}"},
-        "refresh": cuerpo["token_actualizacion"],
     }
 
 
@@ -118,14 +117,14 @@ def test_restaurar_no_presenta_como_vigente_un_precio_que_pudo_quedar_viejo(clie
 # ---------------------------------------------------------------- sesión
 
 def test_reutilizar_un_refresh_token_revoca_toda_la_familia(cliente, consultorio) -> None:
-    primero = consultorio["refresh"]
-    r = cliente.post("/api/v1/autenticacion/renovacion", json={"token_actualizacion": primero})
+    primero = cliente.cookies.get("medalyze_refresh_token")
+    r = cliente.post("/api/v1/autenticacion/renovacion", json={})
     assert r.status_code == 200
-    segundo = r.json()["token_actualizacion"]
-    robo = cliente.post("/api/v1/autenticacion/renovacion", json={"token_actualizacion": primero})
+    segundo = cliente.cookies.get("medalyze_refresh_token")
+    robo = cliente.post("/api/v1/autenticacion/renovacion", cookies={"medalyze_refresh_token": primero})
     assert robo.status_code == 401
     # Antes de la corrección este token seguía vivo: la revocación se perdía en el rollback.
-    legitimo = cliente.post("/api/v1/autenticacion/renovacion", json={"token_actualizacion": segundo})
+    legitimo = cliente.post("/api/v1/autenticacion/renovacion", cookies={"medalyze_refresh_token": segundo})
     assert legitimo.status_code == 401
 
 

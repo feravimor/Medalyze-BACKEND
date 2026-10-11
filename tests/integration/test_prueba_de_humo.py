@@ -174,13 +174,25 @@ def test_inicio_de_sesion_renovacion_y_cierre(A: Api) -> None:
     assert A("POST", "/autenticacion/renovacion", json={}, sesion=False).status_code == 401
 
 
-def test_cerrar_sesion_sin_enviar_el_token_de_renovacion_tambien_lo_revoca(A: Api) -> None:
-    """El frontend llama al cierre de sesión sin cuerpo: antes devolvía 204 sin revocar y el token seguía vigente."""
-    r = A("POST", "/autenticacion/inicio-sesion", json={"correo": A.correo, "contrasena": CONTRASENA}, sesion=False, estado=200).json()  # type: ignore[attr-defined]
-    sesion_nueva = Api(A.cliente, CONTRATO, r["token_acceso"])
-    sesion_nueva("POST", "/autenticacion/cierre-sesion", estado=204)
-    despues = A("POST", "/autenticacion/renovacion", json={"token_actualizacion": r["token_actualizacion"]}, sesion=False)
-    assert despues.status_code == 401, f"el token de renovación siguió funcionando tras cerrar sesión ({despues.status_code})"
+def test_cerrar_sesion_sin_cookie_ni_cuerpo_revoca_todas_las_sesiones_del_usuario(A: Api) -> None:
+    """Otro dispositivo, que no conserva la cookie, cierra sesión solo con su token de acceso.
+
+    Antes devolvía 204 sin revocar nada y la sesión del navegador seguía vigente 7 días.
+    """
+    from app.core.config import obtener_configuracion
+
+    cookie = obtener_configuracion().refresh_cookie_name
+    navegador = TestClient(A.cliente.app, raise_server_exceptions=False)  # type: ignore[attr-defined]
+    otro = TestClient(A.cliente.app, raise_server_exceptions=False)  # type: ignore[attr-defined]
+    datos = {"correo": A.correo, "contrasena": CONTRASENA}  # type: ignore[attr-defined]
+    assert navegador.post("/api/v1/autenticacion/inicio-sesion", json=datos).status_code == 200
+    assert navegador.cookies.get(cookie)
+    acceso = otro.post("/api/v1/autenticacion/inicio-sesion", json=datos).json()["token_acceso"]
+    otro.cookies.clear()  # este dispositivo no tiene la cookie
+    cierre = otro.post("/api/v1/autenticacion/cierre-sesion", headers={"Authorization": f"Bearer {acceso}"})
+    assert cierre.status_code == 204
+    despues = navegador.post("/api/v1/autenticacion/renovacion", json={})
+    assert despues.status_code == 401, f"la sesión del navegador siguió vigente tras cerrar sesión ({despues.status_code})"
 
 
 def test_los_mensajes_de_validacion_llegan_en_espanol(A: Api) -> None:

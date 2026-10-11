@@ -48,23 +48,25 @@ def _detalle(sesion: Session, contexto: ContextoSolicitud, identificador: UUID) 
     )
     if fila is None:
         raise no_encontrado()
-    receta: list[dict[str, Any]] = []
-    if fila.get("metodo_materiales") == "RECETA_INSUMOS":
-        filas_receta = (
-            (
-                sesion.execute(
-                    text("""
-            SELECT l.identificador_insumo,l.cantidad,l.merma_porcentaje,i.nombre
-            FROM tratamiento t JOIN linea_receta_insumos_tratamiento l ON l.identificador_version_configuracion=t.identificador_version_vigente
-            JOIN insumo_clinico i ON i.identificador=l.identificador_insumo WHERE t.identificador=:id
-        """),
-                    {"id": identificador},
-                )
+    # Se devuelven todas las líneas, con su tipo, aunque el método elegido no las use: el PUT de la
+    # configuración reemplaza el conjunto completo y quien lo edita debe poder reenviar las de la
+    # modalidad inactiva sin borrarlas. Al calcular solo cuentan las de la vía elegida.
+    filas_receta = (
+        (
+            sesion.execute(
+                text("""
+        SELECT l.identificador_insumo,l.cantidad,l.merma_porcentaje,l.tipo::text tipo,i.nombre
+        FROM tratamiento t JOIN linea_receta_insumos_tratamiento l ON l.identificador_version_configuracion=t.identificador_version_vigente
+        JOIN insumo_clinico i ON i.identificador=l.identificador_insumo WHERE t.identificador=:id
+        ORDER BY l.tipo,i.nombre
+    """),
+                {"id": identificador},
             )
-            .mappings()
-            .all()
         )
-        receta = [dict(r) for r in filas_receta]
+        .mappings()
+        .all()
+    )
+    receta: list[dict[str, Any]] = [dict(r) for r in filas_receta]
     resultado = dict(fila)
     resultado["receta"] = [limpiar_json(r) for r in receta]
     return limpiar_json(resultado)
@@ -182,6 +184,7 @@ def listar_tratamientos(
             sesion.execute(
                 text(f"""
         SELECT t.identificador,t.nombre,t.especialidad,t.estado::text estado,t.revision,v.duracion_clinica,
+               v.metodo::text metodo_materiales,
                CASE WHEN h.identificador IS NULL THEN NULL ELSE {_SQL_RESULTADO} END ultimo_resultado
         FROM tratamiento t LEFT JOIN version_configuracion_tratamiento v ON v.identificador=t.identificador_version_vigente
         LEFT JOIN hoja_costos_tratamiento h ON h.identificador=t.identificador_hoja_vigente
@@ -390,13 +393,14 @@ def guardar_configuracion(
             raise ErrorAplicacion("ERROR_VALIDACION", "La receta contiene un insumo inválido.", 422)
         sesion.execute(
             text(
-                "INSERT INTO linea_receta_insumos_tratamiento (identificador_version_configuracion,identificador_insumo,cantidad,merma_porcentaje) VALUES (:v,:i,:cantidad,:merma)"
+                "INSERT INTO linea_receta_insumos_tratamiento (identificador_version_configuracion,identificador_insumo,cantidad,merma_porcentaje,tipo) VALUES (:v,:i,:cantidad,:merma,CAST(:tipo AS tipo_linea_receta))"
             ),
             {
                 "v": version,
                 "i": linea.identificador_insumo,
                 "cantidad": linea.cantidad,
                 "merma": linea.merma_porcentaje,
+                "tipo": linea.tipo,
             },
         )
     nuevo_estado = (

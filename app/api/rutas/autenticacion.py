@@ -98,6 +98,18 @@ def _expirar_cookie(response: Response) -> None:
     )
 
 
+def _exigir_origen_permitido(request: Request) -> None:
+    """Con la cookie, un sitio ajeno no puede pedir renovaciones ni cerrar sesiones.
+
+    Importa sobre todo con SameSite=None (frontend y API en dominios distintos), donde el navegador sí
+    envía la cookie desde otros sitios. Se rechaza un ``Origin`` que no esté en ``CORS_ORIGINS``; las
+    solicitudes sin cabecera Origin (herramientas de línea de comandos) no se ven afectadas.
+    """
+    origen = request.headers.get("origin")
+    if origen and origen not in configuracion.cors_origins:
+        raise ErrorAplicacion("SIN_AUTENTICACION", "Origen no autorizado para esta operación.", 401)
+
+
 @router.post("/registro", status_code=status.HTTP_201_CREATED)
 def registro(
     entrada: RegistroEntrada,
@@ -229,6 +241,8 @@ def renovacion(
     token_actualizacion = (entrada.token_actualizacion if entrada else None) or refresh_cookie
     if not token_actualizacion:
         raise ErrorAplicacion("SIN_AUTENTICACION", "La sesión no es válida.", 401)
+    if not (entrada and entrada.token_actualizacion):
+        _exigir_origen_permitido(request)  # el token llegó por la cookie
     token_hash = hash_token_actualizacion(token_actualizacion)
     reutilizado = False
     respuesta: dict | None = None
@@ -306,6 +320,7 @@ def renovacion(
 
 @router.post("/cierre-sesion", status_code=status.HTTP_204_NO_CONTENT)
 def cierre_sesion(
+    request: Request,
     response: Response,
     entrada: RenovacionEntrada | None = None,
     refresh_cookie: str | None = Cookie(default=None, alias=configuracion.refresh_cookie_name),
@@ -315,6 +330,8 @@ def cierre_sesion(
     token = (entrada.token_actualizacion if entrada else None) or refresh_cookie
     if token is None and contexto is None:
         raise ErrorAplicacion("SIN_AUTENTICACION", "Debes iniciar sesión.", 401)
+    if token and not (entrada and entrada.token_actualizacion):
+        _exigir_origen_permitido(request)  # el token llegó por la cookie
     with sesion.begin():
         if token and contexto is not None:
             sesion.execute(

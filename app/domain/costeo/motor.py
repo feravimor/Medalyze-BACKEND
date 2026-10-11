@@ -19,7 +19,8 @@ class EntradaCosteo:
     espaciado: int | None
     metodo_materiales: str | None
     materiales_generales: Decimal | None
-    materiales_especiales: Decimal = CERO
+    # None = hay un insumo especial archivado: el costo se desconoce y no equivale a cero.
+    materiales_especiales: Decimal | None = CERO
     ajuste_porcentaje: Decimal = Decimal("1")
     multiplo_redondeo: Decimal = Decimal("50")
 
@@ -123,6 +124,15 @@ def _validar(entrada: EntradaCosteo) -> list[Bloqueo]:
                 "importe_materiales",
             )
         )
+    elif entrada.metodo_materiales == "PROMEDIO_MENSUAL" and entrada.materiales_especiales is None:
+        bloqueos.append(
+            Bloqueo(
+                CodigoBloqueo.RECETA_INCOMPLETA,
+                6,
+                "Revisa los materiales especiales: uno de sus insumos está archivado",
+                "receta",
+            )
+        )
     elif entrada.metodo_materiales == "RECETA_INSUMOS" and (
         entrada.materiales_generales is None or entrada.materiales_generales <= CERO
     ):
@@ -179,6 +189,7 @@ def calcular_costeo(entrada: EntradaCosteo) -> ResultadoCosteo:
         )
     assert efectivos is not None and efectivos > 0
     assert entrada.materiales_generales is not None
+    assert entrada.materiales_especiales is not None
     costo_minuto = pool / Decimal(efectivos)
     assert entrada.espaciado is not None
     minutos_imputados = entrada.duracion_clinica + entrada.espaciado

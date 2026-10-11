@@ -139,6 +139,12 @@ def test_se_usan_los_tres_metodos_de_materiales(carga: SimpleNamespace) -> None:
     assert {"RECETA_INSUMOS", "IMPORTE_RAPIDO", "PROMEDIO_MENSUAL"} <= metodos
 
 
+def test_la_lista_indica_el_metodo_de_cada_tratamiento(carga: SimpleNamespace) -> None:
+    esperados = {d["nombre"]: d.get("metodo") for d in carga.modulo.TRATAMIENTOS}
+    reales = {t["nombre"]: t["metodo_materiales"] for t in _lista(carga, "/tratamientos")}
+    assert reales == esperados  # la corona en borrador no tiene método (None)
+
+
 def test_el_semaforo_muestra_los_tres_colores(carga: SimpleNamespace) -> None:
     colores = {t["semaforo"] for t in carga.primera["tratamientos"] if t["semaforo"]}
     assert colores == {"ALTO", "INTERMEDIO", "BAJO"}

@@ -120,6 +120,9 @@ class LineaRecetaEntrada(Esquema):
     identificador_insumo: UUID
     cantidad: Decimal = Field(gt=0)
     merma_porcentaje: Decimal = Field(default=Decimal("0"), ge=0, le=100)
+    # RECETA_GENERAL: parte de la receta (método B). INSUMO_ESPECIAL: material que el promedio mensual
+    # (método A) no incluye y se suma aparte; en el método B también cuenta, dentro de la receta.
+    tipo: Literal["RECETA_GENERAL", "INSUMO_ESPECIAL"] = "RECETA_GENERAL"
 
 
 class ConfiguracionTratamientoEntrada(Esquema):

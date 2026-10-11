@@ -5456,6 +5456,13 @@ components:
           type: number
           minimum: 0
           maximum: 100
+        tipo:
+          type: string
+          enum:
+          - RECETA_GENERAL
+          - INSUMO_ESPECIAL
+          default: RECETA_GENERAL
+          description: 'RECETA_GENERAL: línea de la receta (método B). INSUMO_ESPECIAL: insumo específico que el promedio mensual (método A) no incluye y se suma aparte. Solo cuentan las líneas de la vía elegida: con la receta, las generales; con el promedio, las específicas; con el importe rápido, ninguna. Las de la vía inactiva se conservan, pero no se suman.'
         nombre:
           type: string
           readOnly: true
@@ -5601,6 +5608,14 @@ components:
         revision:
           type: integer
           minimum: 0
+        metodo_materiales:
+          oneOf:
+          - type: string
+            enum:
+            - PROMEDIO_MENSUAL
+            - IMPORTE_RAPIDO
+            - RECETA_INSUMOS
+          - type: 'null'
         ultimo_resultado:
           oneOf:
           - $ref: '#/components/schemas/ResultadoCosto'

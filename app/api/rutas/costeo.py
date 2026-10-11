@@ -91,11 +91,7 @@ def _calcular(
     organizacion = repositorio_configuracion.organizacion(contexto.organizacion)
     espaciado = config.get("espaciado")
     if espaciado is None:
-        espaciado = (
-            organizacion["espaciado_por_defecto"]
-            if organizacion["espaciado_por_defecto"] is not None
-            else 10
-        )
+        espaciado = organizacion["espaciado_por_defecto"]
     metodo = config.get("metodo")
     materiales = None
     lineas: list[dict] = []
@@ -140,7 +136,7 @@ def _calcular(
         horas_por_dia=Decimal(capacidad["horas_por_dia"]) if capacidad else None,
         porcentaje_ocupacion=Decimal(capacidad["porcentaje_ocupacion"]) if capacidad else None,
         duracion_clinica=int(config["duracion_clinica"]),
-        espaciado=int(espaciado),
+        espaciado=int(espaciado) if espaciado is not None else None,
         metodo_materiales=metodo,
         materiales_generales=Decimal(materiales) if materiales is not None else None,
         materiales_especiales=Decimal(0),

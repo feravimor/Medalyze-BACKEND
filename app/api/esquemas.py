@@ -23,7 +23,7 @@ class InicioSesionEntrada(Esquema):
 
 
 class RenovacionEntrada(Esquema):
-    token_actualizacion: str
+    token_actualizacion: str | None = None
 
 
 class PerfilActualizar(Esquema):

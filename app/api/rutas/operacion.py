@@ -481,7 +481,11 @@ def resumen_costos(
             "total_mensual": total,
             "minutos_disponibles": disponibles,
             "minutos_efectivos": efectivos,
-            "costo_por_minuto": total / Decimal(efectivos) if efectivos else None,
+            "costo_por_minuto": (total / Decimal(efectivos)).quantize(
+                Decimal("0.0000000001"), rounding=ROUND_HALF_UP
+            )
+            if efectivos
+            else None,
             "aportes": [],
             "bloqueos": bloqueos,
         }

@@ -45,7 +45,7 @@ def _perfil(sesion: Session, contexto: ContextoSolicitud) -> dict:
 @router.get("/perfil")
 def obtener_perfil(
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     return _perfil(sesion, contexto)
 
@@ -55,7 +55,7 @@ def actualizar_perfil(
     entrada: PerfilActualizar,
     if_match: str | None = Header(default=None, alias="If-Match"),
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     revision = exigir_revision(if_match)
     # Toda edición del perfil (nombre o especialidades) sube la revisión, para detectar ediciones simultáneas.
@@ -91,7 +91,7 @@ def actualizar_perfil(
 @router.get("/organizacion")
 def obtener_organizacion(
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     fila = (
         (
@@ -115,7 +115,7 @@ def actualizar_organizacion(
     entrada: OrganizacionActualizar,
     if_match: str | None = Header(default=None, alias="If-Match"),
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     revision = exigir_revision(if_match)
     actual = (
@@ -169,7 +169,7 @@ def actualizar_organizacion(
 
 
 @router.get("/especialidades")
-def listar_especialidades(sesion: Session = Depends(obtener_sesion_protegida)) -> dict:
+def listar_especialidades(sesion: Session = Depends(obtener_sesion_protegida, scope="function")) -> dict:
     filas = (
         (
             sesion.execute(
@@ -205,7 +205,7 @@ def _onboarding(sesion: Session, contexto: ContextoSolicitud) -> dict:
 @router.get("/onboarding")
 def obtener_onboarding(
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     return _onboarding(sesion, contexto)
 
@@ -215,7 +215,7 @@ def actualizar_onboarding(
     entrada: OnboardingActualizar,
     if_match: str | None = Header(default=None, alias="If-Match"),
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     revision = exigir_revision(if_match)
     actual = (

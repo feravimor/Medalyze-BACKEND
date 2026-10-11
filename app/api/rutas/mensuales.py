@@ -42,7 +42,7 @@ def _detalle(sesion: Session, contexto: ContextoSolicitud, identificador: UUID) 
 def listar_periodos(
     limite: int = Query(default=20, ge=1, le=100),
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     filas = (
         (
@@ -68,7 +68,7 @@ def listar_periodos(
 def crear_periodo(
     entrada: PeriodoMensualEntrada,
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     try:
         periodo = sesion.scalar(
@@ -111,7 +111,7 @@ def crear_periodo(
 @router.get("/periodos-mensuales/promedio-materiales")
 def promedio_materiales(
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     filas = (
         (
@@ -160,7 +160,7 @@ def promedio_materiales(
 def detalle_periodo(
     identificador: UUID,
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     return _detalle(sesion, contexto, identificador)
 
@@ -234,7 +234,7 @@ def corregir_periodo(
     entrada: CorreccionPeriodoEntrada,
     if_match: str | None = Header(default=None, alias="If-Match"),
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     return _nueva_version(
         sesion,
@@ -254,7 +254,7 @@ def anular_periodo(
     identificador: UUID,
     if_match: str | None = Header(default=None, alias="If-Match"),
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     return _nueva_version(
         sesion,
@@ -274,7 +274,7 @@ def restaurar_periodo(
     identificador: UUID,
     if_match: str | None = Header(default=None, alias="If-Match"),
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     movimiento = sesion.scalar(
         text(

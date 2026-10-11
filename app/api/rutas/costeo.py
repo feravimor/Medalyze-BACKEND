@@ -220,7 +220,7 @@ def vista_previa(
     identificador: UUID,
     entrada: VistaPreviaEntrada,
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     resultado, datos = _calcular(sesion, contexto, identificador, entrada.configuracion)
     ajuste = datos["entrada"].ajuste_porcentaje if resultado.completo else None
@@ -234,7 +234,7 @@ def emitir_calculo(
     idempotency_key: str = Header(alias="Idempotency-Key", min_length=16, max_length=128),
     if_match: str | None = Header(default=None, alias="If-Match"),
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     if exigir_revision(if_match) != entrada.revision_tratamiento:
         raise ErrorAplicacion(
@@ -352,7 +352,7 @@ def historial(
     identificador: UUID,
     limite: int = Query(default=20, ge=1, le=100),
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     existe = sesion.scalar(
         text("SELECT 1 FROM tratamiento WHERE identificador=:t AND identificador_organizacion=:o"),
@@ -431,6 +431,6 @@ def _detalle_hoja(
 def detalle_hoja(
     identificador: UUID,
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     return _detalle_hoja(sesion, contexto, identificador)

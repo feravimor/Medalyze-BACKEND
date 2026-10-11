@@ -77,7 +77,7 @@ def plantillas(
     especialidad: str | None = None,
     mis_areas: bool = False,
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     filas = (
         (
@@ -108,7 +108,7 @@ def plantillas(
 def importar_plantillas(
     entrada: ImportarPlantillasEntrada,
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     creados = []
     for clave in entrada.claves:
@@ -177,7 +177,7 @@ def listar_tratamientos(
     busqueda: str = "",
     limite: int = Query(default=20, ge=1, le=100),
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     filas = (
         (
@@ -213,7 +213,7 @@ def crear_tratamiento(
     entrada: TratamientoEntrada,
     idempotency_key: str = Header(alias="Idempotency-Key", min_length=16, max_length=128),
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     cuerpo = entrada.model_dump(mode="json")
     repetida = buscar_respuesta(
@@ -262,7 +262,7 @@ def crear_tratamiento(
 @router.get("/tratamientos/materiales-sugeridos")
 def materiales_sugeridos(
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     filas = (
         (
@@ -286,7 +286,7 @@ def materiales_sugeridos(
 def vincular_material(
     entrada: VincularMaterialEntrada,
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     insumo = sesion.scalar(
         text(
@@ -325,7 +325,7 @@ def vincular_material(
 def detalle_tratamiento(
     identificador: UUID,
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     return _detalle(sesion, contexto, identificador)
 
@@ -336,7 +336,7 @@ def guardar_configuracion(
     entrada: ConfiguracionTratamientoEntrada,
     if_match: str | None = Header(default=None, alias="If-Match"),
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     revision = exigir_revision(if_match)
     tratamiento = (
@@ -465,7 +465,7 @@ def archivar_tratamiento(
     identificador: UUID,
     if_match: str | None = Header(default=None, alias="If-Match"),
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     return _cambiar_estado(
         identificador, "ARCHIVADO", exigir_revision(if_match), contexto, sesion
@@ -477,7 +477,7 @@ def restaurar_tratamiento(
     identificador: UUID,
     if_match: str | None = Header(default=None, alias="If-Match"),
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     tiene_hoja = sesion.scalar(
         text(

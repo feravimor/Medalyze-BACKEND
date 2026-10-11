@@ -362,7 +362,7 @@ def cierre_sesion(
 @router.get("/usuario-actual")
 def usuario_actual(
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     fila = (
         (

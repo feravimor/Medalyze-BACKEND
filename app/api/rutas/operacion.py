@@ -22,7 +22,7 @@ router = APIRouter()
 @router.get("/perfil-capacidad")
 def obtener_capacidad(
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     fila = (
         (
@@ -46,7 +46,7 @@ def guardar_capacidad(
     entrada: PerfilCapacidadEntrada,
     if_match: str | None = Header(default=None, alias="If-Match"),
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     revision = exigir_revision(if_match)
     actual = (
@@ -105,7 +105,9 @@ def guardar_capacidad(
 
 
 @router.get("/periodicidades-pago")
-def periodicidades(sesion: Session = Depends(obtener_sesion_protegida)) -> dict:
+def periodicidades(
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
+) -> dict:
     filas = (
         (
             sesion.execute(
@@ -131,7 +133,7 @@ def _gasto_a_json(fila: Any) -> dict:
 def listar_gastos(
     limite: int = Query(default=20, ge=1, le=100),
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     filas = (
         (
@@ -156,7 +158,7 @@ def listar_gastos(
 def crear_gasto(
     entrada: GastoEntrada,
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     fila = (
         (
@@ -195,7 +197,7 @@ def actualizar_gasto(
     entrada: GastoEntrada,
     if_match: str | None = Header(default=None, alias="If-Match"),
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     revision = exigir_revision(if_match)
     fila = (
@@ -247,7 +249,7 @@ def eliminar_gasto(
     identificador: UUID,
     if_match: str | None = Header(default=None, alias="If-Match"),
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> Response:
     revision = exigir_revision(if_match)
     eliminado = sesion.scalar(
@@ -279,7 +281,7 @@ def eliminar_gasto(
 def listar_equipos(
     limite: int = Query(default=20, ge=1, le=100),
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     filas = (
         (
@@ -300,7 +302,7 @@ def listar_equipos(
 def crear_equipo(
     entrada: EquipoEntrada,
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     fila = (
         (
@@ -339,7 +341,7 @@ def actualizar_equipo(
     entrada: EquipoEntrada,
     if_match: str | None = Header(default=None, alias="If-Match"),
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     revision = exigir_revision(if_match)
     fila = (
@@ -388,7 +390,7 @@ def eliminar_equipo(
     identificador: UUID,
     if_match: str | None = Header(default=None, alias="If-Match"),
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> Response:
     revision = exigir_revision(if_match)
     eliminado = sesion.scalar(
@@ -419,7 +421,7 @@ def eliminar_equipo(
 @router.get("/costos-indirectos/resumen")
 def resumen_costos(
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     fijos, variables = RepositorioGastosSQLAlchemy(sesion).totales_mensuales(contexto.organizacion)
     depreciacion = RepositorioEquiposSQLAlchemy(sesion).depreciacion_mensual(contexto.organizacion)

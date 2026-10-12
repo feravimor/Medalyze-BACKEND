@@ -12,7 +12,7 @@ router = APIRouter()
 @router.get("/inicio/resumen")
 def resumen_inicio(
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     conteos = (
         (

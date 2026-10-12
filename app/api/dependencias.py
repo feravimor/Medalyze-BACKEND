@@ -54,6 +54,13 @@ def obtener_sesion_protegida(
     contexto: ContextoSolicitud = Depends(obtener_contexto),
     sesion: Session = Depends(obtener_sesion),
 ) -> Iterator[Session]:
+    """Sesión con la organización fijada y la transacción abierta; confirma al terminar el endpoint.
+
+    IMPORTANTE: los endpoints deben declararla con ``Depends(obtener_sesion_protegida, scope="function")``.
+    Con el alcance por defecto, FastAPI ejecuta el código posterior al ``yield`` (el ``commit``) DESPUÉS
+    de enviar la respuesta: un cliente rápido pide el recurso recién escrito antes de que se confirme y
+    recibe 404 o datos viejos (más seguido cuanto más lenta es la base de datos).
+    """
     sesion.begin()
     fijar_contexto_organizacion(sesion, contexto.organizacion)
     try:

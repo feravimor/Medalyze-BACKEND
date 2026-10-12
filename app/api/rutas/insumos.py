@@ -15,7 +15,9 @@ router = APIRouter()
 
 
 @router.get("/unidades-medida")
-def unidades(sesion: Session = Depends(obtener_sesion_protegida)) -> dict:
+def unidades(
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
+) -> dict:
     filas = (
         (
             sesion.execute(
@@ -59,7 +61,7 @@ def listar_insumos(
     archivados: bool = False,
     limite: int = Query(default=20, ge=1, le=100),
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     filas = (
         (
@@ -92,7 +94,7 @@ def listar_insumos(
 def crear_insumo(
     entrada: InsumoEntrada,
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     try:
         identificador = sesion.scalar(
@@ -133,7 +135,7 @@ def actualizar_insumo(
     entrada: InsumoEntrada,
     if_match: str | None = Header(default=None, alias="If-Match"),
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     revision = exigir_revision(if_match)
     anterior = (
@@ -201,7 +203,7 @@ def eliminar_insumo(
     identificador: UUID,
     if_match: str | None = Header(default=None, alias="If-Match"),
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> Response:
     revision = exigir_revision(if_match)
     usos = sesion.scalar(
@@ -273,7 +275,7 @@ def archivar_insumo(
     identificador: UUID,
     if_match: str | None = Header(default=None, alias="If-Match"),
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     return _cambiar_archivo(identificador, True, exigir_revision(if_match), contexto, sesion)
 
@@ -283,7 +285,7 @@ def restaurar_insumo(
     identificador: UUID,
     if_match: str | None = Header(default=None, alias="If-Match"),
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     return _cambiar_archivo(identificador, False, exigir_revision(if_match), contexto, sesion)
 
@@ -292,7 +294,7 @@ def restaurar_insumo(
 def precios_insumo(
     identificador: UUID,
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     existe = sesion.scalar(
         text(

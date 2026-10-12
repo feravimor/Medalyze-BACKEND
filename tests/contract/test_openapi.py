@@ -34,3 +34,42 @@ def test_implementacion_cubre_todas_las_operaciones_del_contrato() -> None:
     }
 
     assert operaciones_implementadas == operaciones_contrato
+
+
+def test_el_contrato_no_tiene_claves_duplicadas() -> None:
+    """YAML se queda con la última clave repetida sin avisar; en el contrato eso esconde propiedades mal puestas."""
+    import subprocess
+    import sys
+
+    resultado = subprocess.run(
+        [sys.executable, "scripts/verificar_openapi.py"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert resultado.returncode == 0, resultado.stdout + resultado.stderr
+
+
+def test_la_validacion_detecta_una_clave_duplicada(tmp_path: Path) -> None:
+    import subprocess
+    import sys
+
+    copia = tmp_path / "docs" / "api"
+    copia.mkdir(parents=True)
+    original = Path("docs/api/openapi.yaml").read_text(encoding="utf-8")
+    # repite la propiedad `nombre` de LineaReceta
+    duplicado = original.replace(
+        "        nombre:\n          type: string\n          readOnly: true\n",
+        "        nombre:\n          type: string\n          readOnly: true\n        nombre:\n          type: string\n",
+        1,
+    )
+    assert duplicado != original
+    (copia / "openapi.yaml").write_text(duplicado, encoding="utf-8")
+    resultado = subprocess.run(
+        [sys.executable, str(Path("scripts/verificar_openapi.py").resolve())],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert resultado.returncode != 0 and "Clave duplicada" in resultado.stderr

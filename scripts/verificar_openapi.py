@@ -5,7 +5,30 @@ from typing import Any
 
 import yaml
 
-documento = yaml.safe_load(Path("docs/api/openapi.yaml").read_text(encoding="utf-8"))
+
+class CargadorEstricto(yaml.SafeLoader):
+    """Como ``safe_load``, pero una clave repetida en un mismo bloque es un error.
+
+    YAML permite repetirlas y se queda en silencio con la última; en un contrato eso esconde propiedades
+    puestas en el lugar equivocado (por ejemplo, al aplicar un parche sobre un archivo que alguien editó).
+    """
+
+    def construct_mapping(self, node: yaml.MappingNode, deep: bool = False) -> dict[Any, Any]:
+        vistas: set[Any] = set()
+        for clave_nodo, _ in node.value:
+            clave = self.construct_object(clave_nodo, deep=deep)
+            if clave in vistas:
+                linea = clave_nodo.start_mark.line + 1
+                raise ValueError(
+                    f"Clave duplicada {clave!r} en docs/api/openapi.yaml, línea {linea}"
+                )
+            vistas.add(clave)
+        return super().construct_mapping(node, deep)
+
+
+documento = yaml.load(
+    Path("docs/api/openapi.yaml").read_text(encoding="utf-8"), Loader=CargadorEstricto
+)  # noqa: S506
 errores: list[str] = []
 ids: set[str] = set()
 

@@ -6,7 +6,12 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.api.dependencias import ContextoSolicitud, obtener_contexto, obtener_sesion_protegida
-from app.api.esquemas import CalculoEntrada, ConfiguracionTratamientoEntrada, VistaPreviaEntrada
+from app.api.esquemas import (
+    CalculoEntrada,
+    ConfiguracionTratamientoEntrada,
+    LineaRecetaEntrada,
+    VistaPreviaEntrada,
+)
 from app.api.serializadores import hoja_completa, hoja_resumen, resultado_costo
 from app.application.utilidades import exigir_revision, limpiar_json
 from app.core.errores import ErrorAplicacion, conflicto_revision, no_encontrado
@@ -36,16 +41,21 @@ def _cargar_configuracion(
     return resultado
 
 
-def _materiales_receta(sesion: Session, version: UUID) -> tuple[Decimal, list[dict]]:
+_INSUMO_ESPECIAL = "INSUMO_ESPECIAL"
+
+
+def _lineas_guardadas(sesion: Session, version: UUID) -> list[dict]:
+    """Líneas guardadas de la receta, con su precio vigente y si el insumo sigue disponible."""
     filas = (
         (
             sesion.execute(
                 text("""
-        SELECT l.identificador_insumo,i.nombre,l.cantidad,l.merma_porcentaje,p.costo_unitario,
+        SELECT l.identificador_insumo,i.nombre,l.cantidad,l.merma_porcentaje,l.tipo::text tipo,
+               p.costo_unitario,(i.fecha_hora_archivado IS NULL AND p.costo_unitario IS NOT NULL) vigente,
                l.cantidad*(1+l.merma_porcentaje/100)*p.costo_unitario subtotal
         FROM linea_receta_insumos_tratamiento l JOIN insumo_clinico i ON i.identificador=l.identificador_insumo
-        JOIN LATERAL (SELECT costo_unitario FROM precio_historico_insumo WHERE identificador_insumo=i.identificador ORDER BY fecha_inicio_vigencia DESC,fecha_hora_creacion DESC LIMIT 1) p ON true
-        WHERE l.identificador_version_configuracion=:v AND i.fecha_hora_archivado IS NULL
+        LEFT JOIN LATERAL (SELECT costo_unitario FROM precio_historico_insumo WHERE identificador_insumo=i.identificador ORDER BY fecha_inicio_vigencia DESC,fecha_hora_creacion DESC LIMIT 1) p ON true
+        WHERE l.identificador_version_configuracion=:v
     """),
                 {"v": version},
             )
@@ -53,7 +63,49 @@ def _materiales_receta(sesion: Session, version: UUID) -> tuple[Decimal, list[di
         .mappings()
         .all()
     )
-    return sum((Decimal(f["subtotal"]) for f in filas), Decimal(0)), [dict(f) for f in filas]
+    return [dict(f) for f in filas]
+
+
+def _lineas_de_la_solicitud(
+    sesion: Session, contexto: ContextoSolicitud, receta: list[LineaRecetaEntrada]
+) -> list[dict]:
+    """Lo mismo para una receta que llega en la vista previa (todavía sin guardar)."""
+    repositorio = RepositorioInsumosSQLAlchemy(sesion)
+    lineas: list[dict] = []
+    for linea in receta:
+        precio = repositorio.precio_unitario_vigente(contexto.organizacion, linea.identificador_insumo)
+        subtotal = (
+            linea.cantidad * (Decimal(1) + linea.merma_porcentaje / Decimal(100)) * Decimal(precio)
+            if precio is not None
+            else None
+        )
+        lineas.append(
+            {
+                "identificador_insumo": linea.identificador_insumo,
+                "nombre": None,
+                "cantidad": linea.cantidad,
+                "merma_porcentaje": linea.merma_porcentaje,
+                "tipo": linea.tipo,
+                "costo_unitario": precio,
+                "vigente": precio is not None,
+                "subtotal": subtotal,
+            }
+        )
+    return lineas
+
+
+def _materiales_de_la_receta(metodo: str, lineas: list[dict]) -> tuple[Decimal | None, list[dict]]:
+    """Suma las líneas de la vía elegida y nunca las de la inactiva.
+
+    Receta (B): solo las líneas de la receta. Promedio mensual (A): solo los insumos específicos, que el
+    promedio no incluye y se suman aparte. Importe rápido: ninguna. Devuelve (suma, líneas que cuentan);
+    ``None`` indica que algún insumo está archivado: no se calcula a medias.
+    """
+    tipo = "RECETA_GENERAL" if metodo == "RECETA_INSUMOS" else _INSUMO_ESPECIAL
+    cuentan = [linea for linea in lineas if linea["tipo"] == tipo]
+    if any(not linea["vigente"] for linea in cuentan):
+        return None, []
+    return sum((Decimal(linea["subtotal"]) for linea in cuentan), Decimal(0)), cuentan
 
 
 def _promedio_materiales(
@@ -93,41 +145,25 @@ def _calcular(
     if espaciado is None:
         espaciado = organizacion["espaciado_por_defecto"]
     metodo = config.get("metodo")
-    materiales = None
+    materiales: Decimal | None = None
+    especiales: Decimal | None = Decimal(0)
     lineas: list[dict] = []
     periodos: list[dict] = []
     madurez = "SIN_BASE"
     if metodo == "IMPORTE_RAPIDO":
         materiales = config.get("importe_materiales")
-    elif metodo == "RECETA_INSUMOS":
-        if sobreescritura:
-            materiales = Decimal(0)
-            for linea in sobreescritura.receta:
-                precio = RepositorioInsumosSQLAlchemy(sesion).precio_unitario_vigente(
-                    contexto.organizacion, linea.identificador_insumo
-                )
-                if precio is None:
-                    # Insumo archivado o ajeno: la receta está incompleta. Omitir la línea en
-                    # silencio subestimaría el costo y, con él, el precio.
-                    materiales = None
-                    break
-                materiales += (
-                    linea.cantidad
-                    * (Decimal(1) + linea.merma_porcentaje / Decimal(100))
-                    * Decimal(precio)
-                )
+    elif metodo in ("RECETA_INSUMOS", "PROMEDIO_MENSUAL"):
+        todas = (
+            _lineas_de_la_solicitud(sesion, contexto, sobreescritura.receta)
+            if sobreescritura
+            else _lineas_guardadas(sesion, config["identificador"])
+        )
+        suma, lineas = _materiales_de_la_receta(metodo, todas)
+        if metodo == "RECETA_INSUMOS":
+            materiales = suma
         else:
-            materiales, lineas = _materiales_receta(sesion, config["identificador"])
-            total_lineas = sesion.scalar(
-                text(
-                    "SELECT count(*) FROM linea_receta_insumos_tratamiento WHERE identificador_version_configuracion=:v"
-                ),
-                {"v": config["identificador"]},
-            )
-            if len(lineas) < int(total_lineas or 0):
-                materiales = None  # alguna línea usa un insumo archivado: no se calcula a medias
-    elif metodo == "PROMEDIO_MENSUAL":
-        materiales, periodos, madurez = _promedio_materiales(sesion, contexto)
+            materiales, periodos, madurez = _promedio_materiales(sesion, contexto)
+            especiales = suma  # los específicos se suman aparte del promedio
     entrada = EntradaCosteo(
         gastos_fijos=fijos,
         gastos_variables=variables,
@@ -139,7 +175,7 @@ def _calcular(
         espaciado=int(espaciado) if espaciado is not None else None,
         metodo_materiales=metodo,
         materiales_generales=Decimal(materiales) if materiales is not None else None,
-        materiales_especiales=Decimal(0),
+        materiales_especiales=especiales,
         ajuste_porcentaje=Decimal(config.get("ajuste_porcentaje") or 1),
         multiplo_redondeo=Decimal(organizacion["multiplo_redondeo"]),
     )
@@ -184,7 +220,7 @@ def vista_previa(
     identificador: UUID,
     entrada: VistaPreviaEntrada,
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     resultado, datos = _calcular(sesion, contexto, identificador, entrada.configuracion)
     ajuste = datos["entrada"].ajuste_porcentaje if resultado.completo else None
@@ -198,7 +234,7 @@ def emitir_calculo(
     idempotency_key: str = Header(alias="Idempotency-Key", min_length=16, max_length=128),
     if_match: str | None = Header(default=None, alias="If-Match"),
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     if exigir_revision(if_match) != entrada.revision_tratamiento:
         raise ErrorAplicacion(
@@ -316,7 +352,7 @@ def historial(
     identificador: UUID,
     limite: int = Query(default=20, ge=1, le=100),
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     existe = sesion.scalar(
         text("SELECT 1 FROM tratamiento WHERE identificador=:t AND identificador_organizacion=:o"),
@@ -395,6 +431,6 @@ def _detalle_hoja(
 def detalle_hoja(
     identificador: UUID,
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     return _detalle_hoja(sesion, contexto, identificador)

@@ -761,6 +761,17 @@ def test_promedio_de_mis_meses_alimenta_el_costo_de_materiales(A: Api) -> None:
     assert d(A("GET", "/periodos-mensuales/promedio-materiales").json()["importe_por_tratamiento"]) == esperado
 
 
+def test_la_lista_de_tratamientos_indica_el_metodo_de_materiales(A: Api) -> None:
+    """La pantalla de tratamientos y la tabla de inicio muestran el método de cada elemento de la lista."""
+    metodos = {t["nombre"]: t.get("metodo_materiales", "AUSENTE") for t in A("GET", "/tratamientos", estado=200).json()["elementos"]}
+    assert metodos[E("t1")["nombre"]] == "IMPORTE_RAPIDO"
+    assert metodos[E("t2")["nombre"]] == "RECETA_INSUMOS"
+    assert metodos[E("t3")["nombre"]] == "PROMEDIO_MENSUAL"
+    sin_configurar = A("POST", "/tratamientos", json={"nombre": "Sin configurar (humo)", "especialidad": "GENERAL", "duracion_clinica": 15}, clave=clave_nueva(), estado=201).json()
+    lista = {t["nombre"]: t for t in A("GET", "/tratamientos", estado=200).json()["elementos"]}
+    assert lista[sin_configurar["nombre"]]["metodo_materiales"] is None  # presente y nulo, no ausente
+
+
 def test_cambiar_un_gasto_marca_los_precios_como_por_revisar_y_se_recalculan(A: Api) -> None:
     fijo = E("gasto_fijo")
     actual = next(g for g in A("GET", "/gastos").json()["elementos"] if g["identificador"] == fijo["identificador"])

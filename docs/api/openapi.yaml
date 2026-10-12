@@ -114,6 +114,10 @@ paths:
                   multiplo_redondeo: '70.83'
                   revision: 1
                 onboarding_completado: true
+                aviso_privacidad:
+                  version_aceptada: '2026-10-10'
+                  aceptado_en: '2026-10-10T18:30:00Z'
+                  requiere_aceptar: false
         '409':
           description: Conflicto
           content:
@@ -152,6 +156,8 @@ paths:
               nombre_completo: ejemplo
               correo: usuario@ejemplo.mx
               contrasena: ejemplo
+              acepta_aviso_privacidad: true
+              version_aviso_privacidad: '2026-10-10'
   /autenticacion/inicio-sesion:
     post:
       operationId: iniciarSesion
@@ -370,6 +376,62 @@ paths:
               example:
                 detalle:
                   codigo: ERROR_INTERNO
+      security:
+      - BearerJWT: []
+  /cuenta/aviso-privacidad/aceptacion:
+    post:
+      operationId: aceptarAvisoPrivacidad
+      summary: Aceptar el Aviso de Privacidad vigente
+      tags:
+      - Cuenta y onboarding
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+          maxLength: 128
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AceptacionAvisoPrivacidadEntrada'
+            example:
+              acepta_aviso_privacidad: true
+              version_aviso_privacidad: '2026-10-10'
+      responses:
+        '200':
+          description: Aceptación registrada o repetida idempotentemente
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  aviso_privacidad:
+                    $ref: '#/components/schemas/EstadoAvisoPrivacidad'
+                required:
+                - aviso_privacidad
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+        '409':
+          description: Conflicto de idempotencia
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error409'
+        '422':
+          description: Aceptación ausente o versión inválida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
       security:
       - BearerJWT: []
   /perfil:
@@ -4350,6 +4412,8 @@ components:
               enum:
               - ERROR_VALIDACION
               - CALCULO_BLOQUEADO
+              - AVISO_PRIVACIDAD_REQUERIDO
+              - VERSION_AVISO_PRIVACIDAD_INVALIDA
       required:
       - detalle
     Error428:
@@ -4464,12 +4528,35 @@ components:
           $ref: '#/components/schemas/Organizacion'
         onboarding_completado:
           type: boolean
+        aviso_privacidad:
+          $ref: '#/components/schemas/EstadoAvisoPrivacidad'
       required:
       - token_acceso
       - expira_en_segundos
       - usuario
       - organizacion
       - onboarding_completado
+      - aviso_privacidad
+    EstadoAvisoPrivacidad:
+      type: object
+      additionalProperties: false
+      properties:
+        version_aceptada:
+          oneOf:
+          - type: string
+            maxLength: 32
+          - type: 'null'
+        aceptado_en:
+          oneOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+        requiere_aceptar:
+          type: boolean
+      required:
+      - version_aceptada
+      - aceptado_en
+      - requiere_aceptar
     RegistroEntrada:
       type: object
       additionalProperties: false
@@ -4488,10 +4575,31 @@ components:
           oneOf:
           - type: string
           - type: 'null'
+        acepta_aviso_privacidad:
+          type: boolean
+        version_aviso_privacidad:
+          type: string
+          const: '2026-10-10'
+          minLength: 1
+          maxLength: 32
       required:
       - nombre_completo
       - correo
       - contrasena
+      - acepta_aviso_privacidad
+      - version_aviso_privacidad
+    AceptacionAvisoPrivacidadEntrada:
+      type: object
+      additionalProperties: false
+      properties:
+        acepta_aviso_privacidad:
+          type: boolean
+        version_aviso_privacidad:
+          type: string
+          const: '2026-10-10'
+      required:
+      - acepta_aviso_privacidad
+      - version_aviso_privacidad
     InicioSesionEntrada:
       type: object
       additionalProperties: false

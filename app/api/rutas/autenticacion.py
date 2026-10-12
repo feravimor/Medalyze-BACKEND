@@ -12,6 +12,7 @@ from app.api.dependencias import (
     obtener_sesion_protegida,
 )
 from app.api.esquemas import InicioSesionEntrada, RegistroEntrada, RenovacionEntrada
+from app.core import privacidad
 from app.core.config import obtener_configuracion
 from app.core.database import fijar_contexto_organizacion, obtener_sesion
 from app.core.errores import ErrorAplicacion
@@ -52,7 +53,36 @@ def _crear_sesion(
     return acceso, actualizacion, segundos
 
 
-def _respuesta_sesion(fila: dict, acceso: str, segundos: int) -> dict:
+def _estado_aviso_privacidad(sesion: Session, usuario: UUID, organizacion: UUID) -> dict:
+    fila = sesion.execute(
+        text("""
+            SELECT version_aviso, aceptado_en
+            FROM aceptacion_aviso_privacidad
+            WHERE identificador_usuario=:usuario
+              AND version_aviso=:version
+              AND EXISTS (
+                SELECT 1 FROM membresia_usuario_en_organizacion m
+                WHERE m.identificador_usuario=:usuario
+                  AND m.identificador_organizacion=:organizacion
+                  AND m.activa
+              )
+        """),
+        {
+            "usuario": usuario,
+            "organizacion": organizacion,
+            "version": privacidad.VERSION_AVISO_PRIVACIDAD_VIGENTE,
+        },
+    ).mappings().first()
+    return {
+        "version_aceptada": fila["version_aviso"] if fila else None,
+        "aceptado_en": fila["aceptado_en"].isoformat() if fila else None,
+        "requiere_aceptar": fila is None,
+    }
+
+
+def _respuesta_sesion(
+    fila: dict, acceso: str, segundos: int, aviso_privacidad: dict
+) -> dict:
     respuesta = {
         "token_acceso": acceso,
         "expira_en_segundos": segundos,
@@ -71,6 +101,7 @@ def _respuesta_sesion(fila: dict, acceso: str, segundos: int) -> dict:
             "revision": fila["organizacion_revision"],
         },
         "onboarding_completado": fila["onboarding_completado"],
+        "aviso_privacidad": aviso_privacidad,
     }
     return respuesta
 
@@ -106,6 +137,18 @@ def registro(
     sesion: Session = Depends(obtener_sesion),
 ) -> dict:
     limitar_intentos(f"registro:{request.client.host if request.client else 'desconocido'}")
+    if not entrada.acepta_aviso_privacidad:
+        raise ErrorAplicacion(
+            "AVISO_PRIVACIDAD_REQUERIDO",
+            "Debes aceptar el Aviso de Privacidad vigente.",
+            422,
+        )
+    if entrada.version_aviso_privacidad != privacidad.VERSION_AVISO_PRIVACIDAD_VIGENTE:
+        raise ErrorAplicacion(
+            "VERSION_AVISO_PRIVACIDAD_INVALIDA",
+            "La versión del Aviso de Privacidad no está vigente.",
+            422,
+        )
     with sesion.begin():
         existe = sesion.scalar(
             text("SELECT 1 FROM usuario_plataforma WHERE correo=:correo"),
@@ -144,6 +187,14 @@ def registro(
             ),
             {"u": usuario, "o": organizacion},
         )
+        aceptado_en = sesion.scalar(
+            text("""
+                INSERT INTO aceptacion_aviso_privacidad (identificador_usuario, version_aviso)
+                VALUES (:u,:version)
+                RETURNING aceptado_en
+            """),
+            {"u": usuario, "version": privacidad.VERSION_AVISO_PRIVACIDAD_VIGENTE},
+        )
         acceso, actualizacion, segundos = _crear_sesion(
             sesion, usuario, organizacion, "PROPIETARIO"
         )
@@ -161,8 +212,13 @@ def registro(
             "organizacion_revision": 0,
             "onboarding_completado": False,
         }
+        aviso_privacidad = {
+            "version_aceptada": privacidad.VERSION_AVISO_PRIVACIDAD_VIGENTE,
+            "aceptado_en": aceptado_en.isoformat(),
+            "requiere_aceptar": False,
+        }
     _establecer_cookie(response, actualizacion)
-    return _respuesta_sesion(fila, acceso, segundos)
+    return _respuesta_sesion(fila, acceso, segundos, aviso_privacidad)
 
 
 @router.post("/inicio-sesion")
@@ -196,6 +252,9 @@ def inicio_sesion(
         if fila is None or not verificar_contrasena(fila["hash_contrasena"], entrada.contrasena):
             raise ErrorAplicacion("CREDENCIALES_INVALIDAS", "Correo o contraseña incorrectos.", 401)
         fijar_contexto_organizacion(sesion, fila["organizacion_id"])
+        aviso_privacidad = _estado_aviso_privacidad(
+            sesion, fila["usuario_id"], fila["organizacion_id"]
+        )
         onboarding_completado = sesion.scalar(
             text(
                 "SELECT completado FROM preferencias_onboarding_usuario WHERE identificador_usuario=:u"
@@ -214,7 +273,7 @@ def inicio_sesion(
         datos_sesion = dict(fila)
         datos_sesion["onboarding_completado"] = bool(onboarding_completado)
     _establecer_cookie(response, actualizacion)
-    return _respuesta_sesion(datos_sesion, acceso, segundos)
+    return _respuesta_sesion(datos_sesion, acceso, segundos, aviso_privacidad)
 
 
 @router.post("/renovacion")
@@ -294,7 +353,10 @@ def renovacion(
                 ),
                 {"nuevo": nuevo_id, "id": token["identificador"]},
             )
-            respuesta = _respuesta_sesion(dict(fila), nuevo_acceso, segundos)
+            aviso_privacidad = _estado_aviso_privacidad(
+                sesion, fila["usuario_id"], fila["organizacion_id"]
+            )
+            respuesta = _respuesta_sesion(dict(fila), nuevo_acceso, segundos, aviso_privacidad)
             _establecer_cookie(response, nuevo_refresh)
     if reutilizado:
         raise ErrorAplicacion(
@@ -368,4 +430,5 @@ def usuario_actual(
     if fila is None:
         raise ErrorAplicacion("SIN_AUTENTICACION", "La sesión no es válida.", 401)
     acceso, segundos = crear_token_acceso(contexto.usuario, contexto.organizacion, contexto.rol)
-    return _respuesta_sesion(dict(fila), acceso, segundos)
+    aviso_privacidad = _estado_aviso_privacidad(sesion, contexto.usuario, contexto.organizacion)
+    return _respuesta_sesion(dict(fila), acceso, segundos, aviso_privacidad)

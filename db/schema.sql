@@ -71,6 +71,13 @@ CREATE TABLE membresia_usuario_en_organizacion (
   UNIQUE (identificador_usuario, identificador_organizacion)
 );
 
+CREATE TABLE aceptacion_aviso_privacidad (
+  identificador_usuario uuid NOT NULL REFERENCES usuario_plataforma(identificador) ON DELETE CASCADE,
+  version_aviso varchar(32) NOT NULL,
+  aceptado_en timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (identificador_usuario, version_aviso)
+);
+
 CREATE TABLE token_actualizacion_sesion (
   identificador uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   identificador_usuario uuid NOT NULL REFERENCES usuario_plataforma(identificador) ON DELETE CASCADE,
@@ -370,6 +377,24 @@ CREATE TABLE solicitud_idempotente (
   fecha_hora_expiracion timestamptz NOT NULL DEFAULT (now() + interval '24 hours'),
   fecha_hora_creacion timestamptz NOT NULL DEFAULT now(),
   UNIQUE (identificador_organizacion, identificador_usuario, operacion, clave)
+);
+
+ALTER TABLE aceptacion_aviso_privacidad ENABLE ROW LEVEL SECURITY;
+ALTER TABLE aceptacion_aviso_privacidad FORCE ROW LEVEL SECURITY;
+CREATE POLICY aislamiento_aceptacion_aviso ON aceptacion_aviso_privacidad USING (
+  EXISTS (
+    SELECT 1 FROM membresia_usuario_en_organizacion m
+    WHERE m.identificador_usuario = aceptacion_aviso_privacidad.identificador_usuario
+      AND m.identificador_organizacion = organizacion_actual()
+      AND m.activa
+  )
+) WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM membresia_usuario_en_organizacion m
+    WHERE m.identificador_usuario = aceptacion_aviso_privacidad.identificador_usuario
+      AND m.identificador_organizacion = organizacion_actual()
+      AND m.activa
+  )
 );
 
 CREATE TRIGGER usuario_actualizado BEFORE UPDATE ON usuario_plataforma FOR EACH ROW EXECUTE FUNCTION actualizar_fecha_modificacion();

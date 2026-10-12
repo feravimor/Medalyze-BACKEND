@@ -77,6 +77,8 @@ def _registrar(cliente: TestClient, nombre: str) -> Api:
             "correo": correo,
             "contrasena": CONTRASENA,
             "nombre_consultorio": f"Consultorio de {nombre}",
+            "acepta_aviso_privacidad": True,
+            "version_aviso_privacidad": "2026-10-10",
         },
         sesion=False,
         estado=201,
@@ -123,14 +125,45 @@ def test_salud_responde_sin_sesion(cliente: TestClient) -> None:
 def test_el_registro_crea_cuenta_consultorio_y_onboarding(A: Api) -> None:
     r = A("GET", "/autenticacion/usuario-actual", estado=200)
     assert r.json()["usuario"]["correo"] == A.correo  # type: ignore[attr-defined]
+    assert r.json()["aviso_privacidad"] == {
+        "version_aceptada": "2026-10-10",
+        "aceptado_en": r.json()["aviso_privacidad"]["aceptado_en"],
+        "requiere_aceptar": False,
+    }
     ESTADO["org"] = A.org  # type: ignore[attr-defined]
+
+
+def test_aceptacion_de_aviso_es_idempotente_y_versionada(A: Api) -> None:
+    cuerpo = {
+        "acepta_aviso_privacidad": True,
+        "version_aviso_privacidad": "2026-10-10",
+    }
+    clave = clave_nueva()
+    primera = A("POST", "/cuenta/aviso-privacidad/aceptacion", json=cuerpo, clave=clave, estado=200)
+    assert primera.json()["aviso_privacidad"]["requiere_aceptar"] is False
+    segunda = A("POST", "/cuenta/aviso-privacidad/aceptacion", json=cuerpo, clave=clave, estado=200)
+    assert segunda.json() == primera.json()
+    conflicto = A(
+        "POST",
+        "/cuenta/aviso-privacidad/aceptacion",
+        json={"acepta_aviso_privacidad": True, "version_aviso_privacidad": "2027-01-01"},
+        clave=clave,
+    )
+    assert conflicto.status_code == 409
+    assert conflicto.json()["detalle"]["codigo"] == "CONFLICTO_REVISION"
 
 
 def test_registro_con_correo_repetido_es_409_y_con_datos_invalidos_422(A: Api) -> None:
     r = A(
         "POST",
         "/autenticacion/registro",
-        json={"nombre_completo": "Otra", "correo": A.correo, "contrasena": CONTRASENA},  # type: ignore[attr-defined]
+        json={
+            "nombre_completo": "Otra",
+            "correo": A.correo,
+            "contrasena": CONTRASENA,
+            "acepta_aviso_privacidad": True,
+            "version_aviso_privacidad": "2026-10-10",
+        },  # type: ignore[attr-defined]
         sesion=False,
     )
     assert r.status_code == 409, r.text[:200]
@@ -141,6 +174,32 @@ def test_registro_con_correo_repetido_es_409_y_con_datos_invalidos_422(A: Api) -
         sesion=False,
     )
     assert r.status_code == 422
+    r = A(
+        "POST",
+        "/autenticacion/registro",
+        json={
+            "nombre_completo": "Sin aviso",
+            "correo": f"sin-aviso-{os.urandom(5).hex()}@ejemplo.mx",
+            "contrasena": CONTRASENA,
+            "acepta_aviso_privacidad": False,
+            "version_aviso_privacidad": "2026-10-10",
+        },
+        sesion=False,
+    )
+    assert r.status_code == 422 and r.json()["detalle"]["codigo"] == "AVISO_PRIVACIDAD_REQUERIDO"
+    r = A(
+        "POST",
+        "/autenticacion/registro",
+        json={
+            "nombre_completo": "Version vieja",
+            "correo": f"version-vieja-{os.urandom(5).hex()}@ejemplo.mx",
+            "contrasena": CONTRASENA,
+            "acepta_aviso_privacidad": True,
+            "version_aviso_privacidad": "2026-01-01",
+        },
+        sesion=False,
+    )
+    assert r.status_code == 422 and r.json()["detalle"]["codigo"] == "VERSION_AVISO_PRIVACIDAD_INVALIDA"
 
 
 def test_inicio_de_sesion_renovacion_y_cierre(A: Api) -> None:

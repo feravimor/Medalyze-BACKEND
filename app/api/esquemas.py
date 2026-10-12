@@ -15,6 +15,13 @@ class RegistroEntrada(Esquema):
     correo: EmailStr
     contrasena: str = Field(min_length=10, max_length=128)
     nombre_consultorio: str | None = Field(default=None, max_length=160)
+    acepta_aviso_privacidad: bool = False
+    version_aviso_privacidad: str = Field(default="", min_length=1, max_length=32)
+
+
+class AceptacionAvisoPrivacidadEntrada(Esquema):
+    acepta_aviso_privacidad: bool = False
+    version_aviso_privacidad: str = Field(default="", min_length=1, max_length=32)
 
 
 class InicioSesionEntrada(Esquema):

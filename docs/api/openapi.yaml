@@ -4610,6 +4610,7 @@ components:
           type: string
         correo:
           type: string
+          format: email
         rol:
           type: string
           enum:
@@ -4652,7 +4653,6 @@ components:
       - nombre_comercial
       - codigo_moneda
       - multiplo_redondeo
-      - espaciado_por_defecto
       - revision
     Sesion:
       type: object

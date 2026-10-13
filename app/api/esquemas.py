@@ -45,7 +45,7 @@ class CrearDemoEntrada(Esquema):
 class Usuario(Esquema):
     identificador: UUID
     nombre_completo: str
-    correo: str
+    correo: EmailStr
     rol: Literal["PROPIETARIO", "COLABORADOR"]
 
 
@@ -54,7 +54,7 @@ class Organizacion(Esquema):
     nombre_comercial: str
     codigo_moneda: str
     multiplo_redondeo: Decimal
-    espaciado_por_defecto: int | None
+    espaciado_por_defecto: int | None = None
     revision: int
 
 

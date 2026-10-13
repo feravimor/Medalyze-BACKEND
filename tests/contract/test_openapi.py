@@ -1,3 +1,5 @@
+import subprocess
+from copy import deepcopy
 from pathlib import Path
 
 import yaml
@@ -10,6 +12,17 @@ RUTAS_DEMO = {
     "/demo/sesiones": ("post", "SesionDemo"),
     "/demo/sesiones/actual": ("delete", None),
 }
+BASE_CONTRATO = "836765bb2191f4ff9c0d670eea7c8dbd7aee715c"
+SCHEMAS_CRITICOS = (
+    "TratamientoResumen",
+    "ResumenCostosIndirectos",
+    "PeriodoMensual",
+    "PeriodoMensualEntrada",
+    "Organizacion",
+    "PerfilCapacidad",
+    "Sesion",
+    "EstadoAvisoPrivacidad",
+)
 
 
 def test_contrato_contiene_operaciones_del_ticket() -> None:
@@ -77,3 +90,24 @@ def test_contrato_demo_esta_tipado_y_coincide_con_fastapi() -> None:
         assert runtime["additionalProperties"] is False
         assert set(estatico["properties"]) == set(runtime["properties"])
         assert set(estatico["required"]) == set(runtime["required"])
+
+
+def test_contrato_critico_conserva_compatibilidad_pre_demo() -> None:
+    actual = yaml.safe_load(Path("docs/api/openapi.yaml").read_text(encoding="utf-8"))
+    anterior = yaml.safe_load(
+        subprocess.check_output(
+            ["git", "show", f"{BASE_CONTRATO}:docs/api/openapi.yaml"], text=True
+        )
+    )
+
+    for nombre in SCHEMAS_CRITICOS:
+        esquema_actual = deepcopy(actual["components"]["schemas"][nombre])
+        esquema_anterior = anterior["components"]["schemas"][nombre]
+        if nombre == "Sesion":
+            esquema_actual["properties"].pop("modo_invitado")
+            esquema_actual["required"].remove("modo_invitado")
+        assert esquema_actual == esquema_anterior, nombre
+
+    sesion = actual["components"]["schemas"]["Sesion"]
+    assert sesion["properties"]["modo_invitado"] == {"type": "boolean"}
+    assert "modo_invitado" in sesion["required"]

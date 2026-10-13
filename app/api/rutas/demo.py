@@ -530,6 +530,7 @@ def crear_sesion_demo(
     "/sesiones/actual",
     status_code=status.HTTP_204_NO_CONTENT,
     response_model=None,
+    openapi_extra={"security": [{"BearerJWT": []}]},
 )
 def eliminar_sesion_demo(
     contexto: ContextoSolicitud = Depends(obtener_contexto),

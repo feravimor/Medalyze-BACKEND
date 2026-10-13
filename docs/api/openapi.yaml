@@ -82,7 +82,7 @@ paths:
       tags:
       - Demo invitado
       security:
-      - bearerAuth: []
+      - BearerJWT: []
       responses:
         '204':
           description: Demo eliminada

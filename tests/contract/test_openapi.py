@@ -91,6 +91,27 @@ def test_contrato_demo_esta_tipado_y_coincide_con_fastapi() -> None:
         assert set(estatico["properties"]) == set(runtime["properties"])
         assert set(estatico["required"]) == set(runtime["required"])
 
+    assert contrato["paths"]["/demo/sesiones/actual"]["delete"]["security"] == [
+        {"BearerJWT": []}
+    ]
+    assert {"BearerJWT": []} in generado["paths"]["/api/v1/demo/sesiones/actual"]["delete"][
+        "security"
+    ]
+
+
+def test_delete_demo_referencia_el_esquema_de_seguridad_real() -> None:
+    contrato = yaml.safe_load(Path("docs/api/openapi.yaml").read_text(encoding="utf-8"))
+    generado = app.openapi()
+
+    assert contrato["paths"]["/demo/sesiones/actual"]["delete"]["security"] == [
+        {"BearerJWT": []}
+    ]
+    seguridad_runtime = generado["paths"]["/api/v1/demo/sesiones/actual"]["delete"]["security"]
+    assert {"BearerJWT": []} in seguridad_runtime
+    esquema_inexistente = "bearer" + "Auth"
+    assert esquema_inexistente not in str(contrato)
+    assert esquema_inexistente not in str(generado)
+
 
 def test_contrato_critico_conserva_compatibilidad_pre_demo() -> None:
     actual = yaml.safe_load(Path("docs/api/openapi.yaml").read_text(encoding="utf-8"))

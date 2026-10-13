@@ -35,6 +35,7 @@ def test_demo_models_validate_runtime_shapes_and_enum() -> None:
 
 def test_demo_session_model_requires_guest_fields() -> None:
     escenario = _scenario_response("consulta")
+    correo = "demo-00000000-0000-0000-0000-000000000000@demo.medalyze.lat"
     sesion = SesionDemo.model_validate(
         {
             "token_acceso": "token",
@@ -43,7 +44,7 @@ def test_demo_session_model_requires_guest_fields() -> None:
             "usuario": {
                 "identificador": uuid4(),
                 "nombre_completo": "Usuario demo",
-                "correo": "demo@example.com",
+                "correo": correo,
                 "rol": "PROPIETARIO",
             },
             "organizacion": {
@@ -65,6 +66,7 @@ def test_demo_session_model_requires_guest_fields() -> None:
         }
     )
     assert sesion.modo_invitado is True
+    assert sesion.usuario.correo == correo
     assert sesion.escenario.clave == "consulta"
     assert sesion.expira_en == sesion.model_dump()["expira_en"]
 

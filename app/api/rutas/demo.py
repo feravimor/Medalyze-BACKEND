@@ -365,7 +365,7 @@ def crear_sesion_demo(
     expira = ahora + timedelta(hours=24)
     with sesion.begin():
         _limpiar_demos_vencidos(sesion)
-        correo = f"demo-{UUID(int=secrets.randbits(128))}@medalyze.invalid"
+        correo = f"demo-{UUID(int=secrets.randbits(128))}@demo.medalyze.lat"
         usuario = sesion.scalar(
             text(
                 "INSERT INTO usuario_plataforma (correo,hash_contrasena,nombre_completo) VALUES (:correo,:hash,:nombre) RETURNING identificador"

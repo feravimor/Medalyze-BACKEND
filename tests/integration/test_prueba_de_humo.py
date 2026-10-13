@@ -119,6 +119,51 @@ def test_salud_responde_sin_sesion(cliente: TestClient) -> None:
     api("GET", "/ready", sesion=False, estado=200)
 
 
+# --------------------------------------------------------------------------- demo invitado
+
+
+def test_demo_publica_escenarios_crea_sesion_y_elimina_solo_con_autenticacion(
+    cliente: TestClient,
+) -> None:
+    api = Api(cliente, CONTRATO)
+    escenarios = api("GET", "/demo/escenarios", sesion=False, estado=200).json()["elementos"]
+    assert {escenario["clave"] for escenario in escenarios} == {
+        "consulta",
+        "limpieza",
+        "resina",
+        "extraccion",
+        "ortodoncia",
+    }
+
+    api("POST", "/demo/sesiones", json=None, sesion=False, estado=422)
+    api("POST", "/demo/sesiones", json={}, sesion=False, estado=422)
+    api(
+        "POST",
+        "/demo/sesiones",
+        json={"clave_escenario": "desconocido"},
+        sesion=False,
+        estado=404,
+    )
+
+    respuesta = api(
+        "POST",
+        "/demo/sesiones",
+        json={"clave_escenario": "consulta"},
+        sesion=False,
+        estado=201,
+    ).json()
+    assert respuesta["modo_invitado"] is True
+    assert respuesta["escenario"]["clave"] == "consulta"
+    assert respuesta["onboarding_completado"] is True
+
+    cliente.cookies.clear()
+    sin_sesion = Api(cliente, CONTRATO)
+    sin_sesion("DELETE", "/demo/sesiones/actual", sesion=False, estado=401)
+
+    api.token = respuesta["token_acceso"]
+    api("DELETE", "/demo/sesiones/actual", estado=204)
+
+
 # --------------------------------------------------------------------------- 2 · autenticación
 
 
@@ -453,7 +498,8 @@ def _insumo(nombre: str, unidad: str = "PZA", cantidad: str = "100", precio: str
 
 def test_catalogo_de_unidades(A: Api) -> None:
     unidades = A("GET", "/unidades-medida", estado=200).json()["elementos"]
-    assert len(unidades) == 14 and "PZA" in {u["codigo"] for u in unidades}
+    codigos = {u["codigo"] for u in unidades}
+    assert len(unidades) == 15 and {"PZA", "CM"} <= codigos
 
 
 def test_insumo_se_crea_con_su_costo_unitario(A: Api) -> None:
@@ -902,6 +948,7 @@ def test_otro_consultorio_no_ve_ni_modifica_los_datos(A: Api, B: Api) -> None:
 PUBLICAS = {
     ("GET", "/health"), ("GET", "/ready"), ("POST", "/autenticacion/registro"),
     ("POST", "/autenticacion/inicio-sesion"), ("POST", "/autenticacion/renovacion"),
+    ("GET", "/demo/escenarios"), ("POST", "/demo/sesiones"),
 }
 PROTEGIDAS = sorted(CONTRATO.operaciones - PUBLICAS)
 

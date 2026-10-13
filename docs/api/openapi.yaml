@@ -21,7 +21,97 @@ tags:
 - name: Costeo
 - name: Historial
 - name: Inicio
+- name: Demo invitado
 paths:
+  /demo/escenarios:
+    get:
+      operationId: listarEscenariosDemo
+      summary: Listar escenarios públicos de demostración
+      tags:
+      - Demo invitado
+      responses:
+        '200':
+          description: Escenarios disponibles
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [elementos]
+                properties:
+                  elementos:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+      security: []
+  /demo/sesiones:
+    post:
+      operationId: crearSesionDemo
+      summary: Crear una sesión demo temporal con un escenario precargado
+      tags:
+      - Demo invitado
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [clave_escenario]
+              additionalProperties: false
+              properties:
+                clave_escenario:
+                  type: string
+      responses:
+        '201':
+          description: Sesión demo creada
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [token_acceso, usuario, organizacion, modo_invitado, escenario, expira_en]
+                additionalProperties: true
+        '404':
+          description: Escenario inexistente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error404'
+        '422':
+          description: Payload inválido o incompleto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
+        '429':
+          description: Demasiados intentos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security: []
+  /demo/sesiones/actual:
+    delete:
+      operationId: eliminarSesionDemo
+      summary: Eliminar una organización demo propia
+      tags:
+      - Demo invitado
+      security:
+      - bearerAuth: []
+      responses:
+        '204':
+          description: Demo eliminada
+        '401':
+          description: Autenticación requerida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error401'
+        '403':
+          description: La organización no es demo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error403'
   /health:
     get:
       operationId: obtenerSalud
@@ -4522,6 +4612,8 @@ components:
         expira_en_segundos:
           type: integer
           const: 900
+        modo_invitado:
+          type: boolean
         usuario:
           $ref: '#/components/schemas/Usuario'
         organizacion:
@@ -4533,6 +4625,7 @@ components:
       required:
       - token_acceso
       - expira_en_segundos
+      - modo_invitado
       - usuario
       - organizacion
       - onboarding_completado

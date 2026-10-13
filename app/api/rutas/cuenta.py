@@ -2,7 +2,12 @@ from fastapi import APIRouter, Depends, Header
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.api.dependencias import ContextoSolicitud, obtener_contexto, obtener_sesion_protegida
+from app.api.dependencias import (
+    ContextoSolicitud,
+    exigir_cuenta_normal,
+    obtener_contexto,
+    obtener_sesion_protegida,
+)
 from app.api.esquemas import (
     AceptacionAvisoPrivacidadEntrada,
     OnboardingActualizar,
@@ -22,7 +27,7 @@ router = APIRouter()
 def aceptar_aviso_privacidad(
     entrada: AceptacionAvisoPrivacidadEntrada,
     idempotency_key: str = Header(alias="Idempotency-Key", min_length=16, max_length=128),
-    contexto: ContextoSolicitud = Depends(obtener_contexto),
+    contexto: ContextoSolicitud = Depends(exigir_cuenta_normal),
     sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> dict:
     cuerpo = entrada.model_dump(mode="json")
@@ -134,7 +139,7 @@ def obtener_perfil(
 def actualizar_perfil(
     entrada: PerfilActualizar,
     if_match: str | None = Header(default=None, alias="If-Match"),
-    contexto: ContextoSolicitud = Depends(obtener_contexto),
+    contexto: ContextoSolicitud = Depends(exigir_cuenta_normal),
     sesion: Session = Depends(obtener_sesion_protegida),
 ) -> dict:
     revision = exigir_revision(if_match)
@@ -158,7 +163,9 @@ def actualizar_perfil(
             ),
             {"u": contexto.usuario},
         )
-        for especialidad in dict.fromkeys(entrada.especialidades):  # sin repetidas, conservando el orden
+        for especialidad in dict.fromkeys(
+            entrada.especialidades
+        ):  # sin repetidas, conservando el orden
             sesion.execute(
                 text(
                     "INSERT INTO especialidad_seleccionada_por_usuario (identificador_usuario,identificador_especialidad) VALUES (:u,:e)"
@@ -194,7 +201,7 @@ def obtener_organizacion(
 def actualizar_organizacion(
     entrada: OrganizacionActualizar,
     if_match: str | None = Header(default=None, alias="If-Match"),
-    contexto: ContextoSolicitud = Depends(obtener_contexto),
+    contexto: ContextoSolicitud = Depends(exigir_cuenta_normal),
     sesion: Session = Depends(obtener_sesion_protegida),
 ) -> dict:
     revision = exigir_revision(if_match)
@@ -294,7 +301,7 @@ def obtener_onboarding(
 def actualizar_onboarding(
     entrada: OnboardingActualizar,
     if_match: str | None = Header(default=None, alias="If-Match"),
-    contexto: ContextoSolicitud = Depends(obtener_contexto),
+    contexto: ContextoSolicitud = Depends(exigir_cuenta_normal),
     sesion: Session = Depends(obtener_sesion_protegida),
 ) -> dict:
     revision = exigir_revision(if_match)

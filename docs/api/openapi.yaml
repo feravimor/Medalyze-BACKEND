@@ -35,14 +35,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required: [elementos]
-                properties:
-                  elementos:
-                    type: array
-                    items:
-                      type: object
-                      additionalProperties: true
+                $ref: '#/components/schemas/ListaEscenariosDemo'
       security: []
   /demo/sesiones:
     post:
@@ -55,21 +48,14 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required: [clave_escenario]
-              additionalProperties: false
-              properties:
-                clave_escenario:
-                  type: string
+              $ref: '#/components/schemas/CrearDemoEntrada'
       responses:
         '201':
           description: Sesión demo creada
           content:
             application/json:
               schema:
-                type: object
-                required: [token_acceso, usuario, organizacion, modo_invitado, escenario, expira_en]
-                additionalProperties: true
+                $ref: '#/components/schemas/SesionDemo'
         '404':
           description: Escenario inexistente
           content:
@@ -4548,6 +4534,71 @@ components:
       required:
       - estado
       - version
+    EscenarioDemo:
+      type: object
+      additionalProperties: false
+      properties:
+        clave:
+          type: string
+          enum: [consulta, limpieza, resina, extraccion, ortodoncia]
+        nombre:
+          type: string
+        consultorio:
+          type: string
+        usuario:
+          type: string
+        tratamiento:
+          type: string
+        especialidad:
+          type: string
+        horas_por_dia:
+          type: integer
+        dias_por_semana:
+          type: integer
+        ocupacion:
+          type: integer
+        duracion_clinica:
+          type: integer
+        entre_citas:
+          type: integer
+        incremento_porcentaje:
+          type: integer
+        precio_sugerido:
+          type: string
+        insumos:
+          type: integer
+      required:
+      - clave
+      - nombre
+      - consultorio
+      - usuario
+      - tratamiento
+      - especialidad
+      - horas_por_dia
+      - dias_por_semana
+      - ocupacion
+      - duracion_clinica
+      - entre_citas
+      - incremento_porcentaje
+      - precio_sugerido
+      - insumos
+    ListaEscenariosDemo:
+      type: object
+      additionalProperties: false
+      properties:
+        elementos:
+          type: array
+          items:
+            $ref: '#/components/schemas/EscenarioDemo'
+      required: [elementos]
+    CrearDemoEntrada:
+      type: object
+      additionalProperties: false
+      properties:
+        clave_escenario:
+          type: string
+          enum: [consulta, limpieza, resina, extraccion, ortodoncia]
+      required: [clave_escenario]
     Usuario:
       type: object
       additionalProperties: false
@@ -4559,7 +4610,6 @@ components:
           type: string
         correo:
           type: string
-          format: email
         rol:
           type: string
           enum:
@@ -4602,6 +4652,7 @@ components:
       - nombre_comercial
       - codigo_moneda
       - multiplo_redondeo
+      - espaciado_por_defecto
       - revision
     Sesion:
       type: object
@@ -4630,6 +4681,41 @@ components:
       - organizacion
       - onboarding_completado
       - aviso_privacidad
+    SesionDemo:
+      type: object
+      additionalProperties: false
+      properties:
+        token_acceso:
+          type: string
+        expira_en_segundos:
+          type: integer
+          const: 900
+        modo_invitado:
+          type: boolean
+          const: true
+        usuario:
+          $ref: '#/components/schemas/Usuario'
+        organizacion:
+          $ref: '#/components/schemas/Organizacion'
+        onboarding_completado:
+          type: boolean
+        aviso_privacidad:
+          $ref: '#/components/schemas/EstadoAvisoPrivacidad'
+        escenario:
+          $ref: '#/components/schemas/EscenarioDemo'
+        expira_en:
+          type: string
+          format: date-time
+      required:
+      - token_acceso
+      - expira_en_segundos
+      - modo_invitado
+      - usuario
+      - organizacion
+      - onboarding_completado
+      - aviso_privacidad
+      - escenario
+      - expira_en
     EstadoAvisoPrivacidad:
       type: object
       additionalProperties: false

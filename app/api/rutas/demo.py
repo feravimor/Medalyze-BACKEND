@@ -9,7 +9,11 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.api.dependencias import ContextoSolicitud, obtener_contexto, obtener_sesion_protegida
-from app.api.esquemas import Esquema
+from app.api.esquemas import (
+    CrearDemoEntrada,
+    ListaEscenariosDemo,
+    SesionDemo,
+)
 from app.api.rutas.autenticacion import _crear_sesion, _establecer_cookie, _respuesta_sesion
 from app.core.database import fijar_contexto_organizacion, obtener_sesion
 from app.core.errores import ErrorAplicacion, no_encontrado
@@ -17,10 +21,6 @@ from app.core.rate_limit import limitar_intentos
 from app.core.seguridad import hash_contrasena
 
 router = APIRouter()
-
-
-class CrearDemoEntrada(Esquema):
-    clave_escenario: str
 
 
 Material = tuple[str, str, str, float | Decimal, int | float | Decimal]
@@ -340,12 +340,16 @@ def _limpiar_demos_vencidos(sesion: Session) -> None:
         _eliminar_demo_registrado(sesion, organizacion, demo["identificador_usuario"])
 
 
-@router.get("/escenarios")
+@router.get("/escenarios", response_model=ListaEscenariosDemo)
 def listar_escenarios() -> dict:
     return {"elementos": [_scenario_response(key) for key in SCENARIOS]}
 
 
-@router.post("/sesiones", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/sesiones",
+    status_code=status.HTTP_201_CREATED,
+    response_model=SesionDemo,
+)
 def crear_sesion_demo(
     entrada: CrearDemoEntrada,
     request: Request,
@@ -522,7 +526,11 @@ def crear_sesion_demo(
     )
 
 
-@router.delete("/sesiones/actual", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/sesiones/actual",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_model=None,
+)
 def eliminar_sesion_demo(
     contexto: ContextoSolicitud = Depends(obtener_contexto),
     sesion: Session = Depends(obtener_sesion_protegida),

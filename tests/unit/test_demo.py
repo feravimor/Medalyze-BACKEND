@@ -1,7 +1,11 @@
+from datetime import UTC, datetime
+from uuid import uuid4
+
 from fastapi import Response
 
+from app.api.esquemas import CrearDemoEntrada, EscenarioDemo, SesionDemo
 from app.api.rutas.autenticacion import _establecer_cookie, _respuesta_sesion
-from app.api.rutas.demo import EXTRAS, SCENARIOS
+from app.api.rutas.demo import EXTRAS, SCENARIOS, _scenario_response
 from app.core.config import obtener_configuracion
 
 
@@ -19,6 +23,50 @@ def test_demo_has_the_five_documented_scenarios() -> None:
 
 def test_demo_catalog_includes_centimeter_consumables() -> None:
     assert {item[2] for item in EXTRAS["ortodoncia"] if "cm" in item[0]} == {"CM"}
+
+
+def test_demo_models_validate_runtime_shapes_and_enum() -> None:
+    escenario = EscenarioDemo.model_validate(_scenario_response("consulta"))
+    assert escenario.clave == "consulta"
+    assert escenario.precio_sugerido == "650.00"
+    assert CrearDemoEntrada(clave_escenario="ortodoncia").clave_escenario == "ortodoncia"
+    assert CrearDemoEntrada(clave_escenario="desconocido").clave_escenario == "desconocido"
+
+
+def test_demo_session_model_requires_guest_fields() -> None:
+    escenario = _scenario_response("consulta")
+    sesion = SesionDemo.model_validate(
+        {
+            "token_acceso": "token",
+            "expira_en_segundos": 900,
+            "modo_invitado": True,
+            "usuario": {
+                "identificador": uuid4(),
+                "nombre_completo": "Usuario demo",
+                "correo": "demo@example.com",
+                "rol": "PROPIETARIO",
+            },
+            "organizacion": {
+                "identificador": uuid4(),
+                "nombre_comercial": "DEMO Consulta",
+                "codigo_moneda": "MXN",
+                "multiplo_redondeo": "50",
+                "espaciado_por_defecto": 10,
+                "revision": 0,
+            },
+            "onboarding_completado": True,
+            "aviso_privacidad": {
+                "version_aceptada": None,
+                "aceptado_en": None,
+                "requiere_aceptar": False,
+            },
+            "escenario": escenario,
+            "expira_en": datetime.now(UTC).isoformat(),
+        }
+    )
+    assert sesion.modo_invitado is True
+    assert sesion.escenario.clave == "consulta"
+    assert sesion.expira_en == sesion.model_dump()["expira_en"]
 
 
 def test_normal_session_has_false_guest_mode() -> None:

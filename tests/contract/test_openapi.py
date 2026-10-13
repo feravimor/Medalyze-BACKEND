@@ -5,6 +5,11 @@ import yaml
 from app.main import app
 
 VERBOS_HTTP = {"get", "post", "put", "patch", "delete"}
+RUTAS_DEMO = {
+    "/demo/escenarios": ("get", "ListaEscenariosDemo"),
+    "/demo/sesiones": ("post", "SesionDemo"),
+    "/demo/sesiones/actual": ("delete", None),
+}
 
 
 def test_contrato_contiene_operaciones_del_ticket() -> None:
@@ -34,3 +39,41 @@ def test_implementacion_cubre_todas_las_operaciones_del_contrato() -> None:
     }
 
     assert operaciones_implementadas == operaciones_contrato
+
+
+def test_contrato_demo_esta_tipado_y_coincide_con_fastapi() -> None:
+    contrato = yaml.safe_load(Path("docs/api/openapi.yaml").read_text(encoding="utf-8"))
+    generado = app.openapi()
+
+    for ruta, (metodo, respuesta) in RUTAS_DEMO.items():
+        operacion_estatica = contrato["paths"][ruta][metodo]
+        operacion_generada = generado["paths"][f"/api/v1{ruta}"][metodo]
+        if respuesta is None:
+            assert "content" not in operacion_estatica["responses"]["204"]
+            assert "content" not in operacion_generada["responses"]["204"]
+            continue
+        estado = "200" if metodo == "get" else "201"
+        ref_estatica = operacion_estatica["responses"][estado]["content"]["application/json"][
+            "schema"
+        ]["$ref"]
+        ref_generada = operacion_generada["responses"][estado]["content"]["application/json"][
+            "schema"
+        ]["$ref"]
+        assert ref_estatica == ref_generada == f"#/components/schemas/{respuesta}"
+
+    request_estatico = contrato["paths"]["/demo/sesiones"]["post"]["requestBody"]
+    request_generado = generado["paths"]["/api/v1/demo/sesiones"]["post"]["requestBody"]
+    assert request_estatico["content"]["application/json"]["schema"]["$ref"] == (
+        "#/components/schemas/CrearDemoEntrada"
+    )
+    assert request_generado["content"]["application/json"]["schema"]["$ref"] == (
+        "#/components/schemas/CrearDemoEntrada"
+    )
+
+    for nombre in ("EscenarioDemo", "ListaEscenariosDemo", "CrearDemoEntrada", "SesionDemo"):
+        estatico = contrato["components"]["schemas"][nombre]
+        runtime = generado["components"]["schemas"][nombre]
+        assert estatico["additionalProperties"] is False
+        assert runtime["additionalProperties"] is False
+        assert set(estatico["properties"]) == set(runtime["properties"])
+        assert set(estatico["required"]) == set(runtime["required"])

@@ -24,6 +24,22 @@ def test_migraciones_iniciales_existen() -> None:
     assert Path("migrations/versions/0002_catalogos_iniciales.py").is_file()
 
 
+def test_aceptacion_de_privacidad_es_versionada_y_no_guarda_el_contenido() -> None:
+    esquema = Path("db/schema.sql").read_text(encoding="utf-8")
+    migracion = Path("migrations/versions/0004_aceptacion_aviso_privacidad.py").read_text(
+        encoding="utf-8"
+    )
+    contrato = yaml.safe_load(Path("docs/api/openapi.yaml").read_text(encoding="utf-8"))
+
+    assert "CREATE TABLE aceptacion_aviso_privacidad" in esquema
+    assert "version_aviso varchar(32) NOT NULL" in esquema
+    assert "aceptado_en timestamptz NOT NULL DEFAULT now()" in esquema
+    assert "texto completo" not in esquema.lower()
+    assert 'revision = "0004"' in migracion
+    assert "/cuenta/aviso-privacidad/aceptacion" in contrato["paths"]
+    assert "EstadoAvisoPrivacidad" in contrato["components"]["schemas"]
+
+
 def test_seed_tecnico_no_carga_plantillas_demo() -> None:
     seed = Path("db/seed.sql").read_text(encoding="utf-8")
     seed_demo = Path("db/seed_demo.sql").read_text(encoding="utf-8")

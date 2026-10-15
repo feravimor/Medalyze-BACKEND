@@ -43,6 +43,8 @@ def consultorio(cliente):
             "correo": correo,
             "contrasena": "una-contrasena-larga-1",
             "nombre_consultorio": "Consultorio de regresión",
+            "acepta_aviso_privacidad": True,
+            "version_aviso_privacidad": "2026-10-10",
         },
     )
     assert r.status_code == 201

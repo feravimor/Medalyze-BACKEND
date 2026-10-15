@@ -7,6 +7,8 @@ import os
 import pytest
 from fastapi.testclient import TestClient
 
+from app.core.privacidad import VERSION_AVISO_PRIVACIDAD_VIGENTE
+
 pytestmark = pytest.mark.postgres
 
 BASE = "/api/v1/autenticacion"
@@ -27,6 +29,8 @@ def navegador() -> TestClient:
             "nombre_completo": "Dra. Origen",
             "correo": correo,
             "contrasena": "una-contrasena-larga-1",
+            "acepta_aviso_privacidad": True,
+            "version_aviso_privacidad": VERSION_AVISO_PRIVACIDAD_VIGENTE,
         },
     )
     assert r.status_code == 201, r.text

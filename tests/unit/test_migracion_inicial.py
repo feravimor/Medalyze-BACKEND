@@ -8,7 +8,9 @@ MIGRACION = RAIZ / "migrations/versions/0001_esquema_inicial.py"
 
 def test_migracion_0001_usa_el_snapshot_historico_y_no_el_schema_vivo() -> None:
     fuente = MIGRACION.read_text(encoding="utf-8")
-    contenido = SNAPSHOT.read_bytes()
+    # Git en Windows puede entregar el archivo con saltos CRLF: se normaliza para que el hash
+    # compruebe el contenido y no la configuración local de saltos de línea.
+    contenido = SNAPSHOT.read_bytes().replace(b"\r\n", b"\n")
 
     assert "schema_0001.sql" in fuente
     assert "schema.sql" not in fuente

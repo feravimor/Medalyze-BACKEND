@@ -17,6 +17,8 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from app.core.privacidad import VERSION_AVISO_PRIVACIDAD_VIGENTE
+
 RAIZ = Path(__file__).resolve().parents[2]
 
 
@@ -46,6 +48,8 @@ def test_el_commit_ocurre_antes_de_enviar_la_respuesta(monkeypatch: pytest.Monke
             "nombre_completo": "Dra. Orden",
             "correo": f"orden-{os.urandom(4).hex()}@ejemplo.mx",
             "contrasena": "una-contrasena-larga-1",
+            "acepta_aviso_privacidad": True,
+            "version_aviso_privacidad": VERSION_AVISO_PRIVACIDAD_VIGENTE,
         },
     )
     assert r.status_code == 201, r.text

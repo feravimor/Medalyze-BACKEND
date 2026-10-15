@@ -26,6 +26,8 @@ from typing import Any
 Llamar = Callable[..., tuple[int, Any]]
 
 CONTRASENA = "Demo-Medalyze-2026"
+# Versión vigente del Aviso de Privacidad (app/core/privacidad.py); el registro exige aceptarla.
+VERSION_AVISO_PRIVACIDAD = "2026-10-10"
 
 # --- Los datos del documento ---------------------------------------------------------------------
 GASTOS = [  # nombre, categoría, importe capturado, periodicidad  → $20,000 fijos y $4,000 variables al mes
@@ -76,7 +78,8 @@ def ejecutar(llamar: Llamar) -> dict[str, Any]:
     correo = f"oficial-{os.urandom(3).hex()}@ejemplo.mx"
     estado, cuerpo = llamar(
         "POST", "/autenticacion/registro", json={"nombre_completo": "Dra. Ejemplo", "correo": correo,
-        "contrasena": CONTRASENA, "nombre_consultorio": "Ejemplo oficial"}, rev=None, clave=None, token=None,
+        "contrasena": CONTRASENA, "nombre_consultorio": "Ejemplo oficial",
+        "acepta_aviso_privacidad": True, "version_aviso_privacidad": VERSION_AVISO_PRIVACIDAD}, rev=None, clave=None, token=None,
     )  # fmt: skip
     if estado != 201:
         raise RuntimeError(f"No se pudo crear la cuenta: {estado} {cuerpo}")

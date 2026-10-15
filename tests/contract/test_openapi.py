@@ -2,6 +2,7 @@ import subprocess
 from copy import deepcopy
 from pathlib import Path
 
+import pytest
 import yaml
 
 from app.main import app
@@ -52,6 +53,45 @@ def test_implementacion_cubre_todas_las_operaciones_del_contrato() -> None:
     }
 
     assert operaciones_implementadas == operaciones_contrato
+
+
+def test_el_contrato_no_tiene_claves_duplicadas() -> None:
+    """YAML se queda con la última clave repetida sin avisar; en el contrato eso esconde propiedades mal puestas."""
+    import subprocess
+    import sys
+
+    resultado = subprocess.run(
+        [sys.executable, "scripts/verificar_openapi.py"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert resultado.returncode == 0, resultado.stdout + resultado.stderr
+
+
+def test_la_validacion_detecta_una_clave_duplicada(tmp_path: Path) -> None:
+    import subprocess
+    import sys
+
+    copia = tmp_path / "docs" / "api"
+    copia.mkdir(parents=True)
+    original = Path("docs/api/openapi.yaml").read_text(encoding="utf-8")
+    # repite la propiedad `nombre` de LineaReceta
+    duplicado = original.replace(
+        "        nombre:\n          type: string\n          readOnly: true\n",
+        "        nombre:\n          type: string\n          readOnly: true\n        nombre:\n          type: string\n",
+        1,
+    )
+    assert duplicado != original
+    (copia / "openapi.yaml").write_text(duplicado, encoding="utf-8")
+    resultado = subprocess.run(
+        [sys.executable, str(Path("scripts/verificar_openapi.py").resolve())],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert resultado.returncode != 0 and "Clave duplicada" in resultado.stderr
 
 
 def test_contrato_demo_esta_tipado_y_coincide_con_fastapi() -> None:
@@ -115,11 +155,16 @@ def test_delete_demo_referencia_el_esquema_de_seguridad_real() -> None:
 
 def test_contrato_critico_conserva_compatibilidad_pre_demo() -> None:
     actual = yaml.safe_load(Path("docs/api/openapi.yaml").read_text(encoding="utf-8"))
-    anterior = yaml.safe_load(
-        subprocess.check_output(
-            ["git", "show", f"{BASE_CONTRATO}:docs/api/openapi.yaml"], text=True
+    try:
+        anterior = yaml.safe_load(
+            subprocess.check_output(
+                ["git", "show", f"{BASE_CONTRATO}:docs/api/openapi.yaml"],
+                text=True,
+                stderr=subprocess.DEVNULL,
+            )
         )
-    )
+    except subprocess.CalledProcessError:
+        pytest.skip("El commit base del contrato no está en este clon (descarga superficial o ZIP).")
 
     for nombre in SCHEMAS_CRITICOS:
         esquema_actual = deepcopy(actual["components"]["schemas"][nombre])
@@ -127,6 +172,9 @@ def test_contrato_critico_conserva_compatibilidad_pre_demo() -> None:
         if nombre == "Sesion":
             esquema_actual["properties"].pop("modo_invitado")
             esquema_actual["required"].remove("modo_invitado")
+        if nombre == "TratamientoResumen":
+            # PR #6: la lista de tratamientos ahora incluye el método de materiales (cambio aditivo).
+            esquema_actual["properties"].pop("metodo_materiales")
         assert esquema_actual == esquema_anterior, nombre
 
     sesion = actual["components"]["schemas"]["Sesion"]

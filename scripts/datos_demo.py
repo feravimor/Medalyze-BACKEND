@@ -29,6 +29,8 @@ from typing import Any
 
 CORREO = "demo@medalyze.mx"
 CONTRASENA = "Demo-Medalyze-2026"
+# Versión vigente del Aviso de Privacidad (app/core/privacidad.py); el registro exige aceptarla.
+VERSION_AVISO_PRIVACIDAD = "2026-10-10"
 DOCTORA = "Dra. Ana Torres"
 CONSULTORIO = "Clínica Dental Sonrisa"
 ESPECIALIDADES = ("GENERAL", "ENDODONCIA", "ESTETICA")
@@ -236,6 +238,8 @@ def _cuenta(api: _Api, correo: str, contrasena: str) -> None:
             "nombre_completo": DOCTORA,
             "correo": correo,
             "contrasena": contrasena,
+            "acepta_aviso_privacidad": True,
+            "version_aviso_privacidad": VERSION_AVISO_PRIVACIDAD,
             "nombre_consultorio": CONSULTORIO,
         },
         rev=None,

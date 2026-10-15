@@ -534,7 +534,7 @@ def crear_sesion_demo(
 )
 def eliminar_sesion_demo(
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
 ) -> Response:
     _eliminar_demo_registrado(sesion, contexto.organizacion, contexto.usuario)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

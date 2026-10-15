@@ -10,11 +10,88 @@ class Esquema(BaseModel):
     model_config = ConfigDict(extra="forbid", from_attributes=True)
 
 
+ClaveEscenarioDemo = Literal["consulta", "limpieza", "resina", "extraccion", "ortodoncia"]
+
+
+class EscenarioDemo(Esquema):
+    clave: ClaveEscenarioDemo
+    nombre: str
+    consultorio: str
+    usuario: str
+    tratamiento: str
+    especialidad: str
+    horas_por_dia: int
+    dias_por_semana: int
+    ocupacion: int
+    duracion_clinica: int
+    entre_citas: int
+    incremento_porcentaje: int
+    precio_sugerido: str
+    insumos: int
+
+
+class ListaEscenariosDemo(Esquema):
+    elementos: list[EscenarioDemo]
+
+
+class CrearDemoEntrada(Esquema):
+    clave_escenario: str = Field(
+        json_schema_extra={
+            "enum": ["consulta", "limpieza", "resina", "extraccion", "ortodoncia"]
+        }
+    )
+
+
+class Usuario(Esquema):
+    identificador: UUID
+    nombre_completo: str
+    correo: EmailStr
+    rol: Literal["PROPIETARIO", "COLABORADOR"]
+
+
+class Organizacion(Esquema):
+    identificador: UUID
+    nombre_comercial: str
+    codigo_moneda: str
+    multiplo_redondeo: Decimal
+    espaciado_por_defecto: int | None = None
+    revision: int
+
+
+class EstadoAvisoPrivacidad(Esquema):
+    version_aceptada: str | None
+    aceptado_en: datetime | None
+    requiere_aceptar: bool
+
+
+class Sesion(Esquema):
+    token_acceso: str
+    expira_en_segundos: Literal[900]
+    modo_invitado: bool
+    usuario: Usuario
+    organizacion: Organizacion
+    onboarding_completado: bool
+    aviso_privacidad: EstadoAvisoPrivacidad
+
+
+class SesionDemo(Sesion):
+    modo_invitado: Literal[True]
+    escenario: EscenarioDemo
+    expira_en: str = Field(json_schema_extra={"format": "date-time"})
+
+
 class RegistroEntrada(Esquema):
     nombre_completo: str = Field(min_length=1, max_length=160)
     correo: EmailStr
     contrasena: str = Field(min_length=10, max_length=128)
     nombre_consultorio: str | None = Field(default=None, max_length=160)
+    acepta_aviso_privacidad: bool = False
+    version_aviso_privacidad: str = Field(default="", min_length=1, max_length=32)
+
+
+class AceptacionAvisoPrivacidadEntrada(Esquema):
+    acepta_aviso_privacidad: bool = False
+    version_aviso_privacidad: str = Field(default="", min_length=1, max_length=32)
 
 
 class InicioSesionEntrada(Esquema):

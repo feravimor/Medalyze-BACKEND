@@ -26,17 +26,29 @@ def verificar_contrasena(hash_guardado: str, contrasena: str) -> bool:
         return False
 
 
-def crear_token_acceso(usuario: UUID, organizacion: UUID, rol: str) -> tuple[str, int]:
+def crear_token_acceso(
+    usuario: UUID,
+    organizacion: UUID,
+    rol: str,
+    expira_invitado: datetime | None = None,
+    es_invitado: bool = False,
+) -> tuple[str, int]:
     segundos = configuracion.jwt_access_ttl_min * 60
     ahora = datetime.now(UTC)
+    expira = ahora + timedelta(seconds=segundos)
+    if expira_invitado is not None:
+        expira = min(expira, expira_invitado)
+        segundos = max(0, int((expira - ahora).total_seconds()))
     payload = {
         "sub": str(usuario),
         "org": str(organizacion),
         "rol": rol,
         "iat": ahora,
-        "exp": ahora + timedelta(seconds=segundos),
+        "exp": expira,
         "tipo": "acceso",
     }
+    if es_invitado:
+        payload["invitado"] = True
     return jwt.encode(payload, configuracion.jwt_secret, algorithm="HS256"), segundos
 
 

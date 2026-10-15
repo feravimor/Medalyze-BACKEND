@@ -2,12 +2,97 @@ from fastapi import APIRouter, Depends, Header
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.api.dependencias import ContextoSolicitud, obtener_contexto, obtener_sesion_protegida
-from app.api.esquemas import OnboardingActualizar, OrganizacionActualizar, PerfilActualizar
+from app.api.dependencias import (
+    ContextoSolicitud,
+    exigir_cuenta_normal,
+    obtener_contexto,
+    obtener_sesion_protegida,
+)
+from app.api.esquemas import (
+    AceptacionAvisoPrivacidadEntrada,
+    OnboardingActualizar,
+    OrganizacionActualizar,
+    PerfilActualizar,
+)
+from app.api.rutas.autenticacion import _estado_aviso_privacidad
 from app.application.utilidades import exigir_revision, limpiar_json
-from app.core.errores import conflicto_revision, no_encontrado
+from app.core import privacidad
+from app.core.errores import ErrorAplicacion, conflicto_revision, no_encontrado
+from app.infrastructure.idempotencia import buscar_respuesta, completar, reservar
 
 router = APIRouter()
+
+
+@router.post("/cuenta/aviso-privacidad/aceptacion")
+def aceptar_aviso_privacidad(
+    entrada: AceptacionAvisoPrivacidadEntrada,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=16, max_length=128),
+    contexto: ContextoSolicitud = Depends(exigir_cuenta_normal),
+    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
+) -> dict:
+    cuerpo = entrada.model_dump(mode="json")
+    operacion = "aceptar-aviso-privacidad"
+    repetida = buscar_respuesta(sesion, contexto, operacion, idempotency_key, cuerpo)
+    if repetida:
+        return repetida[1]
+    if not reservar(sesion, contexto, operacion, idempotency_key, cuerpo):
+        repetida = buscar_respuesta(sesion, contexto, operacion, idempotency_key, cuerpo)
+        if repetida:
+            return repetida[1]
+        raise ErrorAplicacion(
+            "CONFLICTO_REVISION",
+            "La operación con esta clave sigue en proceso.",
+            409,
+        )
+    if not entrada.acepta_aviso_privacidad:
+        raise ErrorAplicacion(
+            "AVISO_PRIVACIDAD_REQUERIDO",
+            "Debes aceptar el Aviso de Privacidad vigente.",
+            422,
+        )
+    if entrada.version_aviso_privacidad != privacidad.VERSION_AVISO_PRIVACIDAD_VIGENTE:
+        raise ErrorAplicacion(
+            "VERSION_AVISO_PRIVACIDAD_INVALIDA",
+            "La versión del Aviso de Privacidad no está vigente.",
+            422,
+        )
+
+    pertenece = sesion.execute(
+        text(
+            """
+            SELECT 1 FROM membresia_usuario_en_organizacion
+            WHERE identificador_usuario=:usuario
+              AND identificador_organizacion=:organizacion
+              AND activa
+            """
+        ),
+        {"usuario": contexto.usuario, "organizacion": contexto.organizacion},
+    ).scalar_one_or_none()
+    if pertenece is None:
+        raise ErrorAplicacion("SIN_AUTENTICACION", "La sesión no es válida.", 401)
+    aceptado_en = sesion.scalar(
+        text(
+            """
+            INSERT INTO aceptacion_aviso_privacidad (identificador_usuario, version_aviso)
+            VALUES (:usuario,:version)
+            ON CONFLICT (identificador_usuario, version_aviso) DO NOTHING
+            RETURNING aceptado_en
+            """
+        ),
+        {"usuario": contexto.usuario, "version": privacidad.VERSION_AVISO_PRIVACIDAD_VIGENTE},
+    )
+    estado = (
+        {
+            "version_aceptada": privacidad.VERSION_AVISO_PRIVACIDAD_VIGENTE,
+            "aceptado_en": aceptado_en.isoformat(),
+            "requiere_aceptar": False,
+        }
+        if aceptado_en is not None
+        else _estado_aviso_privacidad(sesion, contexto.usuario, contexto.organizacion)
+    )
+    respuesta = {"aviso_privacidad": estado}
+    completar(sesion, contexto, operacion, idempotency_key, 200, respuesta)
+    return respuesta
 
 
 def _perfil(sesion: Session, contexto: ContextoSolicitud) -> dict:
@@ -45,7 +130,7 @@ def _perfil(sesion: Session, contexto: ContextoSolicitud) -> dict:
 @router.get("/perfil")
 def obtener_perfil(
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
+    sesion: Session = Depends(obtener_sesion_protegida),
 ) -> dict:
     return _perfil(sesion, contexto)
 
@@ -54,8 +139,8 @@ def obtener_perfil(
 def actualizar_perfil(
     entrada: PerfilActualizar,
     if_match: str | None = Header(default=None, alias="If-Match"),
-    contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
+    contexto: ContextoSolicitud = Depends(exigir_cuenta_normal),
+    sesion: Session = Depends(obtener_sesion_protegida),
 ) -> dict:
     revision = exigir_revision(if_match)
     # Toda edición del perfil (nombre o especialidades) sube la revisión, para detectar ediciones simultáneas.
@@ -78,7 +163,9 @@ def actualizar_perfil(
             ),
             {"u": contexto.usuario},
         )
-        for especialidad in dict.fromkeys(entrada.especialidades):  # sin repetidas, conservando el orden
+        for especialidad in dict.fromkeys(
+            entrada.especialidades
+        ):  # sin repetidas, conservando el orden
             sesion.execute(
                 text(
                     "INSERT INTO especialidad_seleccionada_por_usuario (identificador_usuario,identificador_especialidad) VALUES (:u,:e)"
@@ -91,7 +178,7 @@ def actualizar_perfil(
 @router.get("/organizacion")
 def obtener_organizacion(
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
+    sesion: Session = Depends(obtener_sesion_protegida),
 ) -> dict:
     fila = (
         (
@@ -114,8 +201,8 @@ def obtener_organizacion(
 def actualizar_organizacion(
     entrada: OrganizacionActualizar,
     if_match: str | None = Header(default=None, alias="If-Match"),
-    contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
+    contexto: ContextoSolicitud = Depends(exigir_cuenta_normal),
+    sesion: Session = Depends(obtener_sesion_protegida),
 ) -> dict:
     revision = exigir_revision(if_match)
     actual = (
@@ -169,7 +256,7 @@ def actualizar_organizacion(
 
 
 @router.get("/especialidades")
-def listar_especialidades(sesion: Session = Depends(obtener_sesion_protegida, scope="function")) -> dict:
+def listar_especialidades(sesion: Session = Depends(obtener_sesion_protegida)) -> dict:
     filas = (
         (
             sesion.execute(
@@ -205,7 +292,7 @@ def _onboarding(sesion: Session, contexto: ContextoSolicitud) -> dict:
 @router.get("/onboarding")
 def obtener_onboarding(
     contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
+    sesion: Session = Depends(obtener_sesion_protegida),
 ) -> dict:
     return _onboarding(sesion, contexto)
 
@@ -214,8 +301,8 @@ def obtener_onboarding(
 def actualizar_onboarding(
     entrada: OnboardingActualizar,
     if_match: str | None = Header(default=None, alias="If-Match"),
-    contexto: ContextoSolicitud = Depends(obtener_contexto),
-    sesion: Session = Depends(obtener_sesion_protegida, scope="function"),
+    contexto: ContextoSolicitud = Depends(exigir_cuenta_normal),
+    sesion: Session = Depends(obtener_sesion_protegida),
 ) -> dict:
     revision = exigir_revision(if_match)
     actual = (

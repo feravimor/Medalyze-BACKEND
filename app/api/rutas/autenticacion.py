@@ -12,6 +12,7 @@ from app.api.dependencias import (
     obtener_sesion_protegida,
 )
 from app.api.esquemas import InicioSesionEntrada, RegistroEntrada, RenovacionEntrada
+from app.core import privacidad
 from app.core.config import obtener_configuracion
 from app.core.database import fijar_contexto_organizacion, obtener_sesion
 from app.core.errores import ErrorAplicacion
@@ -33,29 +34,67 @@ def _crear_sesion(
     usuario: UUID,
     organizacion: UUID,
     rol: str,
+    es_invitado: bool = False,
+    expira_invitado: datetime | None = None,
 ) -> tuple[str, str, int]:
-    acceso, segundos = crear_token_acceso(usuario, organizacion, rol)
+    acceso, segundos = crear_token_acceso(usuario, organizacion, rol, expira_invitado, es_invitado)
     actualizacion = crear_token_actualizacion()
     sesion.execute(
         text("""
             INSERT INTO token_actualizacion_sesion
-              (identificador_usuario, identificador_organizacion, hash_token, fecha_hora_expiracion)
-            VALUES (:usuario, :organizacion, :hash, :expira)
+              (identificador_usuario, identificador_organizacion, hash_token, fecha_hora_expiracion,
+               es_invitado, fecha_hora_expiracion_invitado)
+            VALUES (:usuario, :organizacion, :hash, :expira, :invitado, :expira_invitado)
         """),
         {
             "usuario": usuario,
             "organizacion": organizacion,
             "hash": hash_token_actualizacion(actualizacion),
-            "expira": datetime.now(UTC) + timedelta(days=configuracion.refresh_ttl_days),
+            "expira": expira_invitado
+            or datetime.now(UTC) + timedelta(days=configuracion.refresh_ttl_days),
+            "invitado": es_invitado,
+            "expira_invitado": expira_invitado,
         },
     )
     return acceso, actualizacion, segundos
 
 
-def _respuesta_sesion(fila: dict, acceso: str, segundos: int) -> dict:
+def _estado_aviso_privacidad(sesion: Session, usuario: UUID, organizacion: UUID) -> dict:
+    fila = (
+        sesion.execute(
+            text("""
+            SELECT version_aviso, aceptado_en
+            FROM aceptacion_aviso_privacidad
+            WHERE identificador_usuario=:usuario
+              AND version_aviso=:version
+              AND EXISTS (
+                SELECT 1 FROM membresia_usuario_en_organizacion m
+                WHERE m.identificador_usuario=:usuario
+                  AND m.identificador_organizacion=:organizacion
+                  AND m.activa
+              )
+        """),
+            {
+                "usuario": usuario,
+                "organizacion": organizacion,
+                "version": privacidad.VERSION_AVISO_PRIVACIDAD_VIGENTE,
+            },
+        )
+        .mappings()
+        .first()
+    )
+    return {
+        "version_aceptada": fila["version_aviso"] if fila else None,
+        "aceptado_en": fila["aceptado_en"].isoformat() if fila else None,
+        "requiere_aceptar": fila is None,
+    }
+
+
+def _respuesta_sesion(fila: dict, acceso: str, segundos: int, aviso_privacidad: dict) -> dict:
     respuesta = {
         "token_acceso": acceso,
         "expira_en_segundos": segundos,
+        "modo_invitado": bool(fila.get("modo_invitado", False)),
         "usuario": {
             "identificador": fila["usuario_id"],
             "nombre_completo": fila["nombre_completo"],
@@ -71,16 +110,21 @@ def _respuesta_sesion(fila: dict, acceso: str, segundos: int) -> dict:
             "revision": fila["organizacion_revision"],
         },
         "onboarding_completado": fila["onboarding_completado"],
+        "aviso_privacidad": aviso_privacidad,
     }
+    if respuesta["modo_invitado"]:
+        respuesta["escenario"] = fila["escenario"]
+        respuesta["expira_en"] = fila["expira_en"]
     return respuesta
 
 
-def _establecer_cookie(response: Response, token: str) -> None:
+def _establecer_cookie(response: Response, token: str, max_age: int | None = None) -> None:
+    duracion = max_age or configuracion.refresh_ttl_days * 24 * 60 * 60
     response.set_cookie(
         key=configuracion.refresh_cookie_name,
         value=token,
-        max_age=configuracion.refresh_ttl_days * 24 * 60 * 60,
-        expires=configuracion.refresh_ttl_days * 24 * 60 * 60,
+        max_age=duracion,
+        expires=duracion,
         path=configuracion.refresh_cookie_path,
         secure=configuracion.refresh_cookie_secure,
         httponly=True,
@@ -118,6 +162,18 @@ def registro(
     sesion: Session = Depends(obtener_sesion),
 ) -> dict:
     limitar_intentos(f"registro:{request.client.host if request.client else 'desconocido'}")
+    if not entrada.acepta_aviso_privacidad:
+        raise ErrorAplicacion(
+            "AVISO_PRIVACIDAD_REQUERIDO",
+            "Debes aceptar el Aviso de Privacidad vigente.",
+            422,
+        )
+    if entrada.version_aviso_privacidad != privacidad.VERSION_AVISO_PRIVACIDAD_VIGENTE:
+        raise ErrorAplicacion(
+            "VERSION_AVISO_PRIVACIDAD_INVALIDA",
+            "La versión del Aviso de Privacidad no está vigente.",
+            422,
+        )
     with sesion.begin():
         existe = sesion.scalar(
             text("SELECT 1 FROM usuario_plataforma WHERE correo=:correo"),
@@ -156,6 +212,14 @@ def registro(
             ),
             {"u": usuario, "o": organizacion},
         )
+        aceptado_en = sesion.scalar(
+            text("""
+                INSERT INTO aceptacion_aviso_privacidad (identificador_usuario, version_aviso)
+                VALUES (:u,:version)
+                RETURNING aceptado_en
+            """),
+            {"u": usuario, "version": privacidad.VERSION_AVISO_PRIVACIDAD_VIGENTE},
+        )
         acceso, actualizacion, segundos = _crear_sesion(
             sesion, usuario, organizacion, "PROPIETARIO"
         )
@@ -173,8 +237,13 @@ def registro(
             "organizacion_revision": 0,
             "onboarding_completado": False,
         }
+        aviso_privacidad = {
+            "version_aceptada": privacidad.VERSION_AVISO_PRIVACIDAD_VIGENTE,
+            "aceptado_en": aceptado_en.isoformat(),
+            "requiere_aceptar": False,
+        }
     _establecer_cookie(response, actualizacion)
-    return _respuesta_sesion(fila, acceso, segundos)
+    return _respuesta_sesion(fila, acceso, segundos, aviso_privacidad)
 
 
 @router.post("/inicio-sesion")
@@ -208,6 +277,9 @@ def inicio_sesion(
         if fila is None or not verificar_contrasena(fila["hash_contrasena"], entrada.contrasena):
             raise ErrorAplicacion("CREDENCIALES_INVALIDAS", "Correo o contraseña incorrectos.", 401)
         fijar_contexto_organizacion(sesion, fila["organizacion_id"])
+        aviso_privacidad = _estado_aviso_privacidad(
+            sesion, fila["usuario_id"], fila["organizacion_id"]
+        )
         onboarding_completado = sesion.scalar(
             text(
                 "SELECT completado FROM preferencias_onboarding_usuario WHERE identificador_usuario=:u"
@@ -226,7 +298,7 @@ def inicio_sesion(
         datos_sesion = dict(fila)
         datos_sesion["onboarding_completado"] = bool(onboarding_completado)
     _establecer_cookie(response, actualizacion)
-    return _respuesta_sesion(datos_sesion, acceso, segundos)
+    return _respuesta_sesion(datos_sesion, acceso, segundos, aviso_privacidad)
 
 
 @router.post("/renovacion")
@@ -259,7 +331,14 @@ def renovacion(
             .mappings()
             .first()
         )
-        if token is None or token["fecha_hora_expiracion"] <= datetime.now(UTC):
+        if token is None:
+            raise ErrorAplicacion("TOKEN_VENCIDO", "La sesión terminó.", 401)
+        expira_invitado = token.get("fecha_hora_expiracion_invitado")
+        if token["fecha_hora_expiracion"] <= datetime.now(UTC) or (
+            token.get("es_invitado")
+            and isinstance(expira_invitado, datetime)
+            and expira_invitado <= datetime.now(UTC)
+        ):
             raise ErrorAplicacion("TOKEN_VENCIDO", "La sesión terminó.", 401)
         if token["fecha_hora_revocacion"] is not None:
             # Reutilización de un token ya rotado: se revoca TODA la familia del usuario.
@@ -295,8 +374,23 @@ def renovacion(
                 .mappings()
                 .one()
             )
+            demo = (
+                sesion.execute(
+                    text(
+                        "SELECT clave_escenario,expira_en FROM sesion_demo_invitado WHERE identificador_organizacion=:o"
+                    ),
+                    {"o": fila["organizacion_id"]},
+                )
+                .mappings()
+                .first()
+            )
             nuevo_acceso, nuevo_refresh, segundos = _crear_sesion(
-                sesion, fila["usuario_id"], fila["organizacion_id"], fila["rol"]
+                sesion,
+                fila["usuario_id"],
+                fila["organizacion_id"],
+                fila["rol"],
+                demo is not None,
+                demo["expira_en"] if demo else None,
             )
             nuevo_id = sesion.scalar(
                 text("SELECT identificador FROM token_actualizacion_sesion WHERE hash_token=:hash"),
@@ -308,8 +402,20 @@ def renovacion(
                 ),
                 {"nuevo": nuevo_id, "id": token["identificador"]},
             )
-            respuesta = _respuesta_sesion(dict(fila), nuevo_acceso, segundos)
-            _establecer_cookie(response, nuevo_refresh)
+            aviso_privacidad = _estado_aviso_privacidad(
+                sesion, fila["usuario_id"], fila["organizacion_id"]
+            )
+            datos_respuesta = dict(fila)
+            if demo:
+                from app.api.rutas.demo import _scenario_response
+
+                datos_respuesta.update(
+                    modo_invitado=True,
+                    escenario=_scenario_response(demo["clave_escenario"]),
+                    expira_en=demo["expira_en"].isoformat(),
+                )
+            respuesta = _respuesta_sesion(datos_respuesta, nuevo_acceso, segundos, aviso_privacidad)
+            _establecer_cookie(response, nuevo_refresh, 24 * 60 * 60 if demo else None)
     if reutilizado:
         raise ErrorAplicacion(
             "SIN_AUTENTICACION", "Se detectó reutilización de una sesión revocada.", 401
@@ -384,5 +490,32 @@ def usuario_actual(
     )
     if fila is None:
         raise ErrorAplicacion("SIN_AUTENTICACION", "La sesión no es válida.", 401)
-    acceso, segundos = crear_token_acceso(contexto.usuario, contexto.organizacion, contexto.rol)
-    return _respuesta_sesion(dict(fila), acceso, segundos)
+    demo = (
+        sesion.execute(
+            text(
+                "SELECT clave_escenario,expira_en FROM sesion_demo_invitado WHERE identificador_organizacion=:o"
+            ),
+            {"o": contexto.organizacion},
+        )
+        .mappings()
+        .first()
+    )
+    expira_invitado = demo["expira_en"] if demo else None
+    acceso, segundos = crear_token_acceso(
+        contexto.usuario,
+        contexto.organizacion,
+        contexto.rol,
+        expira_invitado,
+        expira_invitado is not None,
+    )
+    aviso_privacidad = _estado_aviso_privacidad(sesion, contexto.usuario, contexto.organizacion)
+    datos_respuesta = dict(fila)
+    if demo:
+        from app.api.rutas.demo import _scenario_response
+
+        datos_respuesta.update(
+            modo_invitado=True,
+            escenario=_scenario_response(demo["clave_escenario"]),
+            expira_en=demo["expira_en"].isoformat(),
+        )
+    return _respuesta_sesion(datos_respuesta, acceso, segundos, aviso_privacidad)
